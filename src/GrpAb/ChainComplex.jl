@@ -180,10 +180,7 @@ function free_show(io::IO, C::ChainComplex)
   end
 
   R = Nemo.base_ring(C[first(rng)])
-  R_name = get_attribute(R, :name)
-  if R_name === nothing
-    R_name = "$R"
-  end
+  R_name = get_attribute(R, :name, "$R")
 
   for i=rng
     M = C[i]
