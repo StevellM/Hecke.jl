@@ -184,7 +184,7 @@ function free_show(io::IO, C::ChainComplex)
 
   for i=rng
     M = C[i]
-    if get_attribute(M, :name) !== nothing
+    if has_attribute(M, :name)
       push!(name_mod, get_attribute(M, :name))
     else
       push!(name_mod, "$R_name^$(rank(M))")
