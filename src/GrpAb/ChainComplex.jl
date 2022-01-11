@@ -164,10 +164,7 @@ function AbstractAlgebra.get_attribute(::FlintIntegerRing, s::Symbol)
 end
 
 function free_show(io::IO, C::ChainComplex)
-  Cn = get_attribute(C, :name)
-  if Cn === nothing
-    Cn = "F"
-  end
+  Cn = get_attribute(C, :name, "F")
 
   name_mod = String[]
   rank_mod = Int[]
