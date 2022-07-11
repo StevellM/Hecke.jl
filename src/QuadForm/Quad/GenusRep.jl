@@ -91,7 +91,7 @@ Computes representatives for the isometry classes in the genus of $L$.
 At most `max` representatives are returned. The use of automorphims can be
 disabled by
 """
-function genus_representatives(L::QuadLat; max = inf, use_auto = true, use_mass = true)
+function genus_representatives(L::QuadLat; max = inf, use_auto = true, use_mass = true, mass_genus = -one(FlintQQ))
   # Otherwise the isomorphism to the class group fails, cf. §102 in O'Meara.
   @req max >= 1 "Must find at least one representative"
 
@@ -120,9 +120,7 @@ function genus_representatives(L::QuadLat; max = inf, use_auto = true, use_mass 
   spinor_genera = spinor_genera_in_genus(L, typeof(p)[p])
 
   if use_mass
-    @vprint :GenRep 1 "Computing mass exactly ...\n"
-    _mass = mass(L)
-    @vprint :GenRep 1 "... $(_mass)\n"
+    _mass = mass_genus
   else
     _mass = -one(FlintQQ)
   end
@@ -145,6 +143,223 @@ function genus_representatives(L::QuadLat; max = inf, use_auto = true, use_mass 
 
   return res
 end
+
+function genus_rep(L::QuadLat, mass_genus)
+  # Otherwise the isomorphism to the class group fails, cf. §102 in O'Meara.
+
+  res = typeof(L)[]
+
+  p = _smallest_norm_good_prime(L)
+
+  spinor_genera = spinor_genera_in_genus(L, typeof(p)[p])
+
+  _mass = mass_genus
+
+  @vprint :GenRep 1 "Found $(length(spinor_genera)) many spinor genera in genus\n"
+
+  for LL in spinor_genera
+    @hassert :GenRep 3 all(!is_isometric(X, LL)[1] for X in res)
+    new_lat =  iterated_neighbours2(LL, p, mass = _mass//length(spinor_genera))
+    append!(res, new_lat)
+  end
+
+  if sum(fmpq[1//automorphism_group_order(LL) for LL in res]) != _mass
+    throw(error("Something very wrong"))
+  end
+
+  return res
+end
+
+
+function iterated_neighbours2(L::QuadLat, p; mass = -one(FlintQQ))
+  result = typeof(L)[ L ]
+
+  local found::fmpq
+
+  found = 1//automorphism_group_order(L)
+  missing_mass = Ref{fmpq}(mass-found)
+
+  i = 1
+
+  while (found < mass)
+    while i<=length(result)
+      callback = function(res, M)
+        keep = all(LL -> !is_isometric(LL, M)[1], vcat(res, result))
+        return keep, true;
+      end
+      N = random_neighbour(result[i], p, call = callback, missing_mass = missing_mass)
+      if !isempty(N) 
+        found = found + sum(fmpq[1//automorphism_group_order(LL) for LL in N])
+        missing_mass = Ref{fmpq}(mass-found)
+        perc = Printf.@sprintf("%2.1f", Float64(found//mass) * 100)
+        @vprint :GenRep 1 "#Lattices: $(length(result)), Target mass: $mass. Found so far: $found ($perc%)\n"
+        append!(result, N)
+        if iszero(missing_mass[])
+          return result
+        end
+        continue
+      else
+        i = i + 1
+      end
+      GC.gc()
+      GC.gc()
+      if i>length(result)
+        i = 1
+      end
+    end
+  end
+  return result
+end
+
+
+function random_neighbour(L::QuadLat, p; call = stdcallback, missing_mass = Ref{fmpq}(zero(fmpq)))
+  R = base_ring(L)
+  F = nf(R)
+  @req R == order(p) "Incompatible arguments"
+  @req is_prime(p) "Ideal must be prime"
+  ok, rescale = is_modular(L, p)
+  @req ok "The lattice must be locally modular"
+  @req is_isotropic(L, p) "The lattice must be locally isotropic"
+  e = valuation(R(2), p)
+  @req e == 0 || valuation(norm(L), p) >= e "The lattice must be even"
+  B = local_basis_matrix(L, p, type = :submodule)
+  n = nrows(B)
+  if F isa AnticNumberField
+    @assert nbits(minimum(p)) < 60
+    k, h = ResidueFieldSmall(R, p)
+  else
+    k, h = ResidueField(R, p)
+  end
+  hext = extend(h, F)
+  pi = uniformizer(p)
+  piinv = anti_uniformizer(p)
+  form = gram_matrix(ambient_space(L), B)
+  if rescale != 0
+    form = piinv^rescale * form
+  end
+  pform = map_entries(hext, form)
+
+  _mass = missing_mass[]
+
+  @vprint :GenRep 2 "Enumerating lines over $k of length $n\n"
+  LO = enumerate_lines(k, n)
+
+  result = typeof(L)[]
+
+  pMmat = _module_scale_ideal(p, pseudo_matrix(L))
+
+  # TODO: This is too slow
+  _dotk(u, v) = (matrix(k, 1, n, u) * pform * matrix(k, n, 1, v))[1, 1]
+
+  _dotF(u, v) = (matrix(F, 1, n, u) * form * matrix(F, n, 1, v))[1, 1]
+
+  keep = true
+  cont = true
+  found = false
+
+  attempts = 0
+  while attempts < 200
+    attempts += 1
+    w = rand(LO)
+    dotww = _dotk(w, w)
+    if dotww != 0
+      continue
+    end
+    if iszero(matrix(k, 1, n, w) * pform)
+      continue
+    end
+
+    x = [ hext\e for e in w]
+
+    nrm = _dotF(x, x)
+    val = valuation(nrm, p)
+    @assert val > 0
+    if val <= e
+      continue # can only happen if p is even
+    elseif val == e + 1
+      # make val > e + 1
+      bas = [zero(k) for i in 1:n]
+      r = 0
+      for i in 1:n
+        bas[i] = one(k)
+        if _dotk(w, bas) != 0
+          r = i
+          break
+        end
+        bas[i] = zero(k)
+      end
+      @assert r != 0
+      u = [zero(F) for i in 1:n]
+      u[r] = one(F)
+      a = (h\(hext((nrm//(2 * pi * _dotF(x, u))))))
+      @. x = x - a * pi * u
+      @assert valuation(_dotF(x, x), p) >= e + 2
+    end
+    found = true
+
+    # normalize x
+
+    kk = 0
+    for i in 1:n
+      if hext(x[i]) != 0
+        kk = i
+        break
+      end
+    end
+    @assert kk != 0
+    x = Ref(h\(inv(hext(x[kk])))) .* x
+    if e != 0
+      x = Ref(1 + h\(hext((x[kk] - 1)//pi)) * pi) .* x
+      @assert valuation(x[kk] - 1, p) >= 2
+    end
+
+    xF = matrix(F, 1, n, x) * form
+    mm = 0
+    for r in 1:n
+      if r != kk && !iszero(xF[1, r]) && valuation(xF[1, r], p) == 0
+        mm = r
+        break
+      end
+    end
+    @assert mm != 0
+
+    _U = [zero(F) for i in 1:n]
+    _U[mm] = one(F)
+
+    _tt = [ Ref(piinv) .* x, Ref(0 * pi) .* _U]
+    for i in 1:n
+      if i != kk && i != mm
+        _t = [zero(F) for i in 1:n]
+        _t[i] = one(F)
+        push!(_tt, _t .- (Ref(h\hext(xF[1, i]//xF[mm])) .* _U))
+      end
+    end
+    VV = matrix(F, n, n, reduce(vcat, _tt))
+    V = VV * B
+    LL = lattice(ambient_space(L), _sum_modules(pMmat, pseudo_matrix(V)))
+
+    @hassert :GenRep 1 is_locally_isometric(LL, L, p)
+
+    if !(call isa Bool)
+      keep, cont = call(result, LL)
+    end
+    if keep
+      @vprint :GenRep 1 "Found after $(attempts) random searche(s)\n"
+      push!(result, LL)
+      break
+    end
+    GC.gc()
+    GC.gc()
+  end
+  if !found
+    @warn "L_p/pL_p has no suitable isotropic vector!"
+  end
+  if length(result) == 0
+    @vprint :GenRep 1 "Nothing found after $(attempts) attempt(s)\n"
+  end
+  return result
+end
+
 
 function spinor_genera_in_genus(L, mod_out)
 #{A sequence of lattices representing the spinor genera in the genus of L}
@@ -230,7 +445,7 @@ function spinor_genera_in_genus(L, mod_out)
   for p in primes
     N = neighbours(L, p, max = 1)[1]
     pN = pseudo_matrix(N)
-    for i in 1:length(res)
+    for i=1:length(res)
       pM = pseudo_matrix(res[i])
       new_pm = _sum_modules(_module_scale_ideal(p, pM), pN)
       new_pm = _intersect_modules(new_pm, _module_scale_ideal(inv(p), pM))
@@ -917,7 +1132,7 @@ function _spinor_generators(L, C, mod_out = elem_type(codomain(C.mQ))[])
 end
 
 # TODO: Enable use_auto
-function neighbours(L::QuadLat, p; call = stdcallback, use_auto = true, max = inf)
+function neighbours(L::QuadLat, p; call = stdcallback, use_auto = true, max = inf, missing_mass = Ref{fmpq}(zero(fmpq)))
   R = base_ring(L)
   F = nf(R)
   @req R == order(p) "Incompatible arguments"
@@ -943,6 +1158,12 @@ function neighbours(L::QuadLat, p; call = stdcallback, use_auto = true, max = in
     form = piinv^rescale * form
   end
   pform = map_entries(hext, form)
+
+  use_mass = !iszero(missing_mass[])
+
+  if use_mass
+    _mass = missing_mass[]
+  end
 
   if use_auto
     G = automorphism_group_generators(L)
@@ -2432,10 +2653,6 @@ function automorphism_group_generators(g::QuadBin{fmpz})
           SS = matrix(ZZ, 2, 2, [1, 0, 0, -1])
           # g * T * S * SS = g * T * S
           improperT = t * T * S * SS * inv(S) * inv(T) * inv(t)
-          @assert _action(gorig, improperT) == gorig
-          @assert det(improperT) == -1
-          push!(gens, improperT)
-        else
           # Turn this into [a, a, c]
           n, r = divrem(b, 2 * a)
           @assert r == a

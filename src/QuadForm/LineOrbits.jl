@@ -134,6 +134,34 @@ function next(P::LineEnumCtx{T, S}) where {T <: Union{GaloisField, GaloisFmpzFie
   return P.v
 end
 
+function Base.getindex(P::Hecke.LineEnumCtx{T, S}, i::Int64) where {T , S}
+  @assert 1<= i<= length(P)
+  K = P.K
+  v = Vector{elem_type(K)}(undef, dim(P))
+  for i in 1:dim(P)
+    v[i] = zero(K)
+  end
+  if i == 1
+    v[end] = one(K)
+    return v
+  else
+    p = size(K)
+    j = i-2
+    n = findfirst(n -> sum(p^i for i=1:n) > j, 1:64)
+    v[end-n] = one(K)
+    j = n == 1 ? j : j-sum([p^k for k=1:(n-1)])
+    str = base(ZZ(j), Int(p))
+    for k = 1:length(str)
+      v[end-length(str)+k] = K(Int(str[k])-48)
+    end
+    return v
+  end
+end
+
+function Base.rand(P::Hecke.LineEnumCtx{T,S}) where {T , S}
+  return P[Base.rand(1:Int(length(P)))]
+end
+
 ################################################################################
 #
 #  Iterator interface
