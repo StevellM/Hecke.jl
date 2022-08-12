@@ -1,3 +1,5 @@
+import MagmaCall
+
 # Genus representatives for quadratic lattices,
 #
 # With permission ported from Magma package of Markus Kirschmer:
@@ -197,6 +199,7 @@ function iterated_neighbours2(L::QuadLat, p; mass = -one(FlintQQ))
         if iszero(missing_mass[])
           return result
         end
+        i = i+1
         continue
       else
         i = i + 1
@@ -212,9 +215,66 @@ function iterated_neighbours2(L::QuadLat, p; mass = -one(FlintQQ))
 end
 
 
-function random_neighbour(L::QuadLat, p; call = stdcallback, missing_mass = Ref{fmpq}(zero(fmpq)))
+function _mat_in_str(M::fmpq_mat)
+  n,m = size(M)
+  str = "matrix(QQ, $n, $m, ["
+  for i=1:n
+    for j= 1:m
+      if M[i,j] == zero(fmpq)
+        str *= " 0"
+      elseif denominator(M[i,j]) == 1
+        str *= " $(numerator(M[i,j]))"
+      else
+        str *= " $(numerator(M[i,j]))//$(denominator(M[i,j]))"
+      end
+      if j ==m && i != n
+        str *= ";"
+      end
+    end
+  end
+  str*= " ])"
+  return str
+end
+
+function _lll_gram(L::ZLat)
+  @req is_definite(L) "L must be definite"
+  nd = is_negative_definite(L)
+  if nd
+    L = rescale(L, -1)
+  end
+  M = gram_matrix(L)
+  Mred = lll_gram(change_base_ring(ZZ, M))
+  if nd
+    Mred = -Mred
+  end
+  Lred = Zlattice(gram = Mred)
+  return Lred
+end
+
+function _aut_order_in_magma(L::ZLat)
+  if isdefined(L, :automorphism_group_order)
+    return L.automorphism_group_order
+  end
+  @req is_definite(L) "L must be definite"
+  if is_negative_definite(L)
+    L = rescale(L, -1)
+  end
+  n = rank(L)
+  m = degree(L)
+  M = gram_matrix(L)
+  gram = "[" * split(string([M[i, j] for i in 1:nrows(M) for j in 1:ncols(M)]), '[')[2]
+  gram = replace(gram, "//" => "/")
+  s = MagmaCall.magconvert(Int, MagmaCall.maglength(MagmaCall.magf.AutomorphismGroup(MagmaCall.magf.LatticeWithGram(MagmaCall.magf.Matrix(MagmaCall.magf.Rationals(), n, m, MagmaCall.mageval(gram))))))
+  L.automorphism_group_order = s
+  return fmpz(s)
+end
+
+
+function random_neighbour(W::ZLat, p, path, so_far, _mult = 1; call = stdcallback, missing_mass = Ref{fmpq}(zero(fmpq)))
+  L = Hecke._to_number_field_lattice(W)
   R = base_ring(L)
   F = nf(R)
+  nb = so_far
   @req R == order(p) "Incompatible arguments"
   @req is_prime(p) "Ideal must be prime"
   ok, rescale = is_modular(L, p)
@@ -244,7 +304,7 @@ function random_neighbour(L::QuadLat, p; call = stdcallback, missing_mass = Ref{
   @vprint :GenRep 2 "Enumerating lines over $k of length $n\n"
   LO = enumerate_lines(k, n)
 
-  result = typeof(L)[]
+  result = typeof(W)[]
 
   pMmat = _module_scale_ideal(p, pseudo_matrix(L))
 
@@ -258,7 +318,7 @@ function random_neighbour(L::QuadLat, p; call = stdcallback, missing_mass = Ref{
   found = false
 
   attempts = 0
-  while attempts < 200
+  while attempts < Int(floor(_mult*25*log(length(LO))))
     attempts += 1
     w = rand(LO)
     dotww = _dotk(w, w)
@@ -337,16 +397,28 @@ function random_neighbour(L::QuadLat, p; call = stdcallback, missing_mass = Ref{
     VV = matrix(F, n, n, reduce(vcat, _tt))
     V = VV * B
     LL = lattice(ambient_space(L), _sum_modules(pMmat, pseudo_matrix(V)))
-
+    LLZ = Hecke._to_ZLat(LL, K=QQ)
+    LLZ = Hecke._lll_gram(LLZ)
     @hassert :GenRep 1 is_locally_isometric(LL, L, p)
-
+    s = Hecke._aut_order_in_magma(LLZ)
+    LLZ.automorphism_group_order = s
     if !(call isa Bool)
-      keep, cont = call(result, LL)
+      keep, cont = call(result, LLZ)
     end
     if keep
-      @vprint :GenRep 1 "Found after $(attempts) random searche(s)\n"
-      push!(result, LL)
-      break
+      @vprint :GenRep 1 "Found a neighbour after $(attempts) random searche(s)\n"
+      open(path, "a") do f
+        nb += 1
+        str = "L$(nb) = Zlattice(gram= "*Hecke._mat_in_str(gram_matrix(LLZ))*");\n"
+        str*= "L$(nb).automorphism_group_order = $s;\n\n"
+        Base.write(f,str)
+      end
+      _mass = _mass - 1//s
+      push!(result, LLZ)
+      if _mass == zero(fmpq)
+        @vprint :GenRep 1 "Neighbours research completed\n"
+        return result
+      end
     end
     GC.gc()
     GC.gc()
@@ -356,6 +428,8 @@ function random_neighbour(L::QuadLat, p; call = stdcallback, missing_mass = Ref{
   end
   if length(result) == 0
     @vprint :GenRep 1 "Nothing found after $(attempts) attempt(s)\n"
+  else
+    @vprint :GenRep 1 "Found $(length(result)) new neighbours after $(attempts) random attempts\n"
   end
   return result
 end

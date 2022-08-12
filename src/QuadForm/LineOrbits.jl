@@ -30,7 +30,7 @@ function LineEnumCtx(K::T, n) where {T}
   depth = n + 1
   dim = n
   q = order(K)
-  length = divexact(q^n - 1, q - 1)
+  length = divexact(BigInt(q)^n - 1, q - 1)
   return LineEnumCtx{T, elem_type(T)}(K, a, dim, depth, v, length)
 end
 
@@ -43,7 +43,7 @@ function LineEnumCtx(K::T, n::Int) where {T <: Union{GaloisField, GaloisFmpzFiel
   depth = n + 1
   dim = n
   q = order(K)
-  length = divexact(q^n - 1, q - 1)
+  length = divexact(BigInt(q)^n - 1, q - 1)
   return LineEnumCtx{T, elem_type(T)}(K, a, dim, depth, v, length)
 end
 
@@ -134,12 +134,12 @@ function next(P::LineEnumCtx{T, S}) where {T <: Union{GaloisField, GaloisFmpzFie
   return P.v
 end
 
-function Base.getindex(P::Hecke.LineEnumCtx{T, S}, i::Int64) where {T , S}
+function Base.getindex(P::Hecke.LineEnumCtx{T, S}, i::BigInt) where {T , S}
   @assert 1<= i<= length(P)
   K = P.K
   v = Vector{elem_type(K)}(undef, dim(P))
-  for i in 1:dim(P)
-    v[i] = zero(K)
+  for j in 1:dim(P)
+    v[j] = zero(K)
   end
   if i == 1
     v[end] = one(K)
@@ -147,9 +147,9 @@ function Base.getindex(P::Hecke.LineEnumCtx{T, S}, i::Int64) where {T , S}
   else
     p = size(K)
     j = i-2
-    n = findfirst(n -> sum(p^i for i=1:n) > j, 1:64)
+    n = findfirst(n -> sum(BigInt(p)^i for i=1:n) > j, 1:256)
     v[end-n] = one(K)
-    j = n == 1 ? j : j-sum([p^k for k=1:(n-1)])
+    j = n == 1 ? j : j-sum([BigInt(p)^k for k=1:(n-1)])
     str = base(ZZ(j), Int(p))
     for k = 1:length(str)
       v[end-length(str)+k] = K(Int(str[k])-48)
@@ -159,7 +159,7 @@ function Base.getindex(P::Hecke.LineEnumCtx{T, S}, i::Int64) where {T , S}
 end
 
 function Base.rand(P::Hecke.LineEnumCtx{T,S}) where {T , S}
-  return P[Base.rand(1:Int(length(P)))]
+  return P[Base.rand(1:length(P))]
 end
 
 ################################################################################
