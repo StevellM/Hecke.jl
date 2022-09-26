@@ -32,6 +32,11 @@ function check_parent(a::KInftyElem{T}, b::KInftyElem{T})  where T <: FieldEleme
   parent(a) != parent(b) && error("Parent objects do not match")
 end
 
+function Base.hash(a::KInftyElem, h::UInt)
+  b = 0x32ba43ad011affd1%UInt 
+  return xor(b, hash(data(a), h))
+end
+
 ###############################################################################
 #
 #   Basic manipulation
@@ -482,14 +487,14 @@ end
 #TODO: ResidueRing is probably "just" poly of deg < n, think about it
 
 @doc Markdown.doc"""
-    Localization(K::RationalFunctionField{T}, ::typeof(degree)) where T <: FieldElement
+    localization(K::RationalFunctionField{T}, ::typeof(degree)) where T <: FieldElement
 
 Return the localization of $k[1/x]$ at $(1/x)$ inside the rational function
 field $k(x)$, i.e. the localization of the function field at the point at
 infinity, i.e. the valuation ring for valuation $-$degree$(x)$. This is the ring
 $k_\infty(x) = \{ f/g | \deg(f) \leq \deg(g)\}$.
 """
-function Localization(K::Generic.RationalFunctionField{T}, ::typeof(degree); cached::Bool=true) where T <: FieldElement
+function localization(K::Generic.RationalFunctionField{T}, ::typeof(degree); cached::Bool=true) where T <: FieldElement
   return KInftyRing{T}(K, cached)
 end
 

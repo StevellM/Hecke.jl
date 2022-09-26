@@ -191,6 +191,20 @@ end
   s = sprint(show, "text/plain", Lr0)
   @test occursin("lattice", s)
 
+  L = Zlattice(gram=ZZ[4;])
+  R = @inferred root_sublattice(L)
+  @test 0 == rank(R)
+  L = root_lattice(:A,2)
+  R = lattice(ambient_space(L),basis_matrix(L)[1,:])
+  @test rank(root_sublattice(R))==1
+
+  L = orthogonal_sum(root_lattice(:A,2),root_lattice(:D,4))[1]
+  R = root_lattice_recognition(L)
+  @test length(R[1]) == 2
+  @test (:D,4) in R[1] && (:A,2) in R[1]
+  R = root_lattice_recognition_fundamental(L)
+  @test gram_matrix(R[3][1])==gram_matrix(root_lattice(R[2][1]...))
+
   # isometry testing
   C1 = root_lattice(:A, 2)
   C1m = rescale(C1,-1)
@@ -275,7 +289,7 @@ end
 
   #discriminant of a lattice
   L = Zlattice(ZZ[1 0; 0 1], gram = matrix(QQ, 2,2, [2, 1, 1, 2]))
-  @test discriminant(L) == 3
+  @test discriminant(L) == -3
 
   G = matrix(ZZ, 2, 2, [2, 1, 1, 2])
   L = Zlattice(gram=G)
@@ -410,13 +424,13 @@ end
   @test automorphism_group_order(L) == 1152
 
   L = root_lattice(:E,6)
-  @test discriminant(L) == 3
+  @test discriminant(L) == -3
   @test iseven(L)
   @test norm(L) == 2
   @test Hecke.kissing_number(L) == 72
 
   L = root_lattice(:E,7)
-  @test discriminant(L) == 2
+  @test discriminant(L) == -2
   @test iseven(L)
   @test norm(L) == 2
   @test Hecke.kissing_number(L) == 126
@@ -455,7 +469,7 @@ end
   @test !(x2 in L)
   @test B[1,:] in L
   @test [B[4,i] for i in 1:ncols(B)] in L
-  @test_throws AssertionError x4 in L
+  @test_throws ArgumentError x4 in L
   @test v in l
 
   # Mass of lattices
@@ -489,4 +503,56 @@ end
   LL = lll(L)
   @test L == LL
 
+  L = Zlattice(gram=QQ[1//2;])
+  @inferred lll(L)
+
+  # Primitive extensions
+
+  M = root_lattice(:E, 6)
+  N = root_lattice(:E, 7)
+  @test_throws ArgumentError primitive_closure(M, N) # Not in the same ambient space
+
+  bM = basis_matrix(M)
+  N1 = lattice_in_same_ambient_space(M, 2*bM[1:3,:])
+  N2 = lattice_in_same_ambient_space(M, bM[4:6,:])
+  N3 = @inferred primitive_closure(M, N1)
+
+  @test_throws ArgumentError primitive_closure(N1, N2) # N2 not contained in \QQ N2
+  @test_throws ArgumentError is_primitive(M, dual(M))  # M does not contain its dual
+  @test !is_primitive(M, N1)  # Can't be primitive since its basis vector is not
+  @test is_primitive(M, N2)
+  @test is_primitive(M, N3)   # Primitive closure has to be primitive
+
+  zM = lattice_in_same_ambient_space(M, bM[2:1,:]) # test for the zero lattice, always primitive
+                                                   # since M is torsion-free
+  @test is_primitive(M, zM)
+
+  L = root_lattice(:E, 7)
+  f = matrix(QQ, 7, 7, [1 2 3 2 1 1 1; -1 -2 -3 -3 -2 -1 -1; -1 -1 -1 0 0 0 -1; 1 0 0 0 0 0 0; 0 1 1 1 0 0 1; 0 0 0 0 1 1 0; 1 2 2 1 1 0 1])      # minpoly(f) = (x+1)*(x^6-x^5+x^4-x^3+x^2-x+1)
+  g = matrix(QQ, 7, 7, [1 0 0 0 0 0 0; 0 1 0 0 0 0 0; 0 0 1 1 1 1 0; -1 -2 -3 -3 -2 -1 -1; 1 2 3 3 2 1 2; -1 -2 -3 -2 -1 -1 -2; 0 0 0 0 -1 -1 0]) # (x^2+x+1) divides minpoly(g)
+  S = kernel_lattice(L, f+1)
+  R = kernel_lattice(L, f^6-f^5+f^4-f^3+f^2-f+1)
+  M = kernel_lattice(L, f)
+  N = kernel_lattice(L, g^2 + g + 1)
+
+  for lat in [S, R, M, N]
+    @test is_primitive(L, lat)  # Kernel lattices are primitive
+  end
+
+  @test_throws ArgumentError glue_map(1//2*L, S, R) # 1//2*L is not all integral
+  @test_throws ArgumentError glue_map(L, 2*S, R)    # 2*S is not primitive in L
+  @test_throws ArgumentError glue_map(L, S, M)      # Sum of the ranks do not match
+  @test_throws ArgumentError glue_map(L, R, N)      # R and N are not orthognal
+
+  glue, iS, iR = @inferred glue_map(L, S, R)
+  @test is_bijective(glue)          # It is an anti-isometry so it has to be bijective
+  HS = domain(glue)
+
+  for a in collect(HS)
+    @test a*a == -glue(a)*glue(a)   # Checking that it is indeed an anti-isometry
+  end
+
+  L2 = @inferred overlattice(glue)
+  @test L2 == L  # We found back our initial overlattice
 end
+

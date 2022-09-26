@@ -59,6 +59,7 @@ function _isprincipal_maximal(a::AlgAssAbsOrdIdl, M, side = :right)
     push!(gens, mB(gen))
   end
   gen = inv(base_ring(A)(dena)) * sum(gens)
+  @assert gen * M == aorig
   @hassert :PIP 1 gen * M == aorig
   return true, gen
 end
@@ -235,15 +236,10 @@ function _is_principal_maximal_full_matrix_algebra(a, M, side = :right)
     end
     return fl, gen
   else
-    N, S = nice_order(M)
-    #@show pseudo_basis(N)
-    AM = algebra(M)
-    aN = ideal_from_lattice_gens(algebra(M), elem_type(AM)[b * inv(S) for b in absolute_basis(a)])
-    fl, _gen = _isprincipal_maximal_simple_nice(aN, N, side)
-    gen = _gen * S
-    #if fl
-    #  @assert gen * M == a
-    #end
+    fl, gen = _isprincipal_maximal_simple(a, M)
+    if fl
+      @assert gen * M == a
+    end
     return fl, gen
   end
 end
@@ -282,7 +278,6 @@ function _isprincipal_maximal_simple_nice(I::AlgAssRelOrdIdl, M, side = :right)
   pmh = sub(pseudo_hnf(pm, :upperright), 1:d, 1:d)
   #@show pmh
   st = steinitz_form(pmh)
-  #@show st
   J = st.coeffs[end] * inv(a)
   #@show J
   #@show basis(J)
@@ -373,7 +368,7 @@ end
 function _isprincipal_maximal_simple(a::AlgAssRelOrdIdl, M, side = :right)
   @assert side == :right
   @assert _test_ideal_sidedness(a, M, :right)
-  @assert all(b in M for b in basis(a))
+  @assert all(b in M for b in absolute_basis(a))
   S, c = nice_order(M)
   ainS = a * inv(c)
   #@show basis(S)
@@ -1493,7 +1488,7 @@ function _unit_group_generators_maximal(M)
     B, mB = res[i]
     MinB = Order(B, [(mB\(mB(one(B)) * elem_in_algebra(b))) for b in Mbas])
     UB = _unit_group_generators_maximal_simple(MinB)
-    e = sum(idems[j] for j in 1:length(res) if j != i)
+    e = sum(idems[j] for j in 1:length(res) if j != i; init = zero(algebra(M)))
     @assert isone(e + mB(one(B)))
     for u in UB
       push!(gens, mB(u) + e)
@@ -1527,7 +1522,6 @@ function _unit_group_generators_maximal_simple(M)
     return gens_in_M
  elseif dim(ZA) == 4 && !isdefined(A, :isomorphic_full_matrix_algebra)
     Q, QtoZA = isquaternion_algebra(ZA)
-    @show Q
     MQ = _get_order_from_gens(Q, [QtoZA\(ZAtoA\(elem_in_algebra(b))) for b in absolute_basis(M)])
     _gens =  _unit_group_generators_quaternion(MQ)
     gens_in_M = [ ZAtoA(QtoZA(elem_in_algebra(u))) for u in _gens]
@@ -1750,12 +1744,9 @@ global __GLn_generators_quadratic = [(-4, 1, [[[ 1, 0 ],[ 0, 0 ],[ 0, -1 ],[ 1, 
 #
 ################################################################################
 
-global __debug = []
-
 function _orbit_stabilizer(G, idity, a)
   OT = Tuple{typeof(idity), FakeFmpqMat}[(idity, hnf(basis_matrix(a)))]
   Y = typeof(idity)[]
-  push!(__debug, Y)
   m = 1
   while m <= length(OT)
     b = OT[m][2]
@@ -2167,7 +2158,7 @@ function _adjust_automorphism_group(mK, mQ, ktoK)
   K = codomain(ktoK)
   k = domain(ktoK)
   v = Vector{NfToNfMor}(undef, degree(k))
-  au = automorphisms(k)
+  au = automorphism_list(k)
   for q in Q
     b = (mK(mQ\q))(ktoK(gen(k)))
     fl, bb = haspreimage(ktoK, b)
@@ -2219,7 +2210,6 @@ function _describe(B)
 end
 
 function __unit_reps_simple(M, F)
-  #push!(_debug, (M, F))
   B = algebra(M)
   @vprint :PIP _describe(B)
   @vprint :PIP "Computing generators of the maximal order"
@@ -2434,8 +2424,8 @@ function __isprincipal(O, I, side = :right, _alpha = nothing)
   end
 
   F = ideal_from_lattice_gens(A, O, basis_F, :twosided)
-  @show norm(F)
-  @show norm((conductor(O, M, :left) * conductor(O, M, :right)))
+  #@show norm(F)
+  #@show norm((conductor(O, M, :left) * conductor(O, M, :right)))
   #@show F == (conductor(O, M, :left) * conductor(O, M, :right))
   #@show det(basis_matrix(F))
   #@show det(basis_matrix(conductor(O, M, :left) * conductor(O, M, :right)))
@@ -2747,8 +2737,20 @@ end
 #
 ################################################################################
 
-function _isisomorphic_generic(X, Y, side = :right)
-  @assert side == :right
+function _isisomorphic_generic(X, Y; side::Symbol = :right, strategy = :default)
+  if side === :right
+    return _isisomorphic_generic_right(X, Y, strategy = strategy)
+  elseif side === :left
+    _, op = opposite_algebra(algebra(order(X)))
+    Xop = op(X)
+    Yop = op(Y)
+    Xop.order = order(X)
+    Yop.order = order(X)
+    return _isisomorphic_generic_right(Xop, Yop, strategy = strategy)
+  end
+end
+
+function _isisomorphic_generic_right(X, Y; strategy = :default)
   C = _colon_raw(Y, X, :right)
   CI = ideal(algebra(X), C)
   for x in basis(CI)
@@ -2765,13 +2767,23 @@ function _isisomorphic_generic(X, Y, side = :right)
   CIint = d * CI
   CIint.order = Gamma
   @assert Hecke._test_ideal_sidedness(CIint, Gamma, :right)
-  fl, alpha  = __isprincipal(Gamma, CIint, :right)
-  if fl
-    alpha = inv(QQ(d)) * alpha
-    @assert alpha * X == Y
+  if strategy == :default
+    fl, alpha  = __isprincipal(Gamma, CIint, :right)
+    if fl
+      alpha = inv(QQ(d)) * alpha
+      @assert alpha * X == Y
+    end
+  elseif strategy == :s1
+    fl = __isprincipal_s1(Gamma, CIint, :right)::Bool
+    alpha = zero(algebra(order(X)))
+  else
+    error("strategy :$strategy not valid")
   end
+
   return fl, alpha
 end
+
+__isprincipal_s1(R, I, side) = error("asd")
 
 ################################################################################
 #
@@ -2779,20 +2791,20 @@ end
 #
 ################################################################################
 
-function _is_aut_isomorphic(X, Y; side::Symbol = :right)
+function _is_aut_isomorphic(X, Y; side::Symbol = :right, strategy = :default)
   if side === :right
-    return _is_aut_isomorphic_right(X, Y)
+    return _is_aut_isomorphic_right(X, Y, strategy = strategy)
   elseif side === :left
     _, op = opposite_algebra(algebra(order(X)))
     Xop = op(X)
     Yop = op(Y)
     Xop.order = order(X)
     Yop.order = order(X)
-    return _is_aut_isomorphic_right(Xop, Yop)
+    return _is_aut_isomorphic_right(Xop, Yop, strategy = strategy)
   end
 end
 
-function _is_aut_isomorphic_right(X, Y)
+function _is_aut_isomorphic_right(X, Y; strategy = :default)
   QG = algebra(order(X))
   ZG = order(X)
   @assert _test_ideal_sidedness(X, ZG, :right)
@@ -2818,7 +2830,7 @@ function _is_aut_isomorphic_right(X, Y)
     newbas = fmpq_mat(basis_matrix(Y)) * t
     Ytwisted = ideal_from_lattice_gens(QG, order(Y), [elem_from_mat_row(QG, newbas, i) for i in 1:n]);
     @assert _test_ideal_sidedness(Ytwisted, ZG, :right)
-    fl, _ = _isisomorphic_generic(X, Ytwisted, :right)
+    fl, _ = _isisomorphic_generic(X, Ytwisted, side = :right, strategy = strategy)
     if fl
       return true
     end

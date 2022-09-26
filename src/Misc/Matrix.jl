@@ -1,4 +1,4 @@
-export is_zero_row, howell_form, kernel_basis, is_diagonal, diagonal
+export is_zero_row, howell_form, kernel_basis, is_diagonal, diagonal, saturate
 
 import Nemo.matrix
 
@@ -90,6 +90,23 @@ function mul!(a::nmod_mat, b::nmod_mat, c::nmod)
   return a
 end
 
+function mul!(c::MatElem, a::MatElem, b::RingElement)
+  nrows(c) != nrows(a) && error("Incompatible matrix dimensions")
+
+  if c === a || c === b
+    d = parent(a)()
+    return mul!(d, a, b)
+  end
+
+  t = base_ring(a)()
+  for i = 1:nrows(a)
+    for j = 1:ncols(a)
+      c[i, j] = mul!(c[i, j], a[i, j], b)
+    end
+  end
+  return c
+end
+
 ################################################################################
 #
 #  Denominator
@@ -132,22 +149,25 @@ function saturate(A::fmpz_mat)
   H = transpose(A)
   H = hnf!(H)
   H = sub(H, 1:ncols(H), 1:ncols(H))
-ccall((:fmpz_mat_transpose, libflint), Nothing,
-    (Ref{fmpz_mat}, Ref{fmpz_mat}), H, H)
-Hi, d = pseudo_inv(H)
+    ccall((:fmpz_mat_transpose, libflint), Nothing,
+           (Ref{fmpz_mat}, Ref{fmpz_mat}), H, H)
+  Hi, d = pseudo_inv(H)
   S = Hi*A
-divexact!(S, S, d)
-#  @hassert :HNF 1  d*Sd == S
+  divexact!(S, S, d)
+  #@hassert :HNF 1  d*Sd == S
   return S
 end
 
-
 function transpose!(A::fmpz_mat, B::fmpz_mat)
-  GC.@preserve A B begin
-    ccall((:fmpz_mat_transpose, libflint), Nothing,
-      (Ref{fmpz_mat}, Ref{fmpz_mat}), A, B)
-  end
-  return nothing
+  ccall((:fmpz_mat_transpose, libflint), Nothing,
+    (Ref{fmpz_mat}, Ref{fmpz_mat}), A, B)
+  return A
+end
+
+function transpose!(A::fmpq_mat, B::fmpq_mat)
+   ccall((:fmpq_mat_transpose, libflint), Nothing,
+    (Ref{fmpq_mat}, Ref{fmpq_mat}), A, B)
+  return A
 end
 
 ################################################################################
@@ -848,6 +868,20 @@ function _copy_matrix_into_matrix(A::fmpz_mat, i::Int, j::Int, B::fmpz_mat)
         t = ccall((:fmpz_mat_entry, libflint),
                   Ptr{fmpz}, (Ref{fmpz_mat}, Int, Int), A, i - 1 + k, j - 1 + l)
         ccall((:fmpz_set, libflint), Nothing, (Ptr{fmpz}, Ptr{fmpz}), t, d)
+      end
+    end
+  end
+end
+
+function _copy_matrix_into_matrix!(A::fmpq_mat, i::Int, j::Int, B::fmpq_mat)
+  @GC.preserve A B begin
+    for k in 0:nrows(B) - 1
+      for l in 0:ncols(B) - 1
+        d = ccall((:fmpq_mat_entry, libflint),
+                  Ptr{fmpq}, (Ref{fmpq_mat}, Int, Int), B, k, l)
+        t = ccall((:fmpq_mat_entry, libflint),
+                  Ptr{fmpq}, (Ref{fmpq_mat}, Int, Int), A, i - 1 + k, j - 1 + l)
+        ccall((:fmpq_set, libflint), Nothing, (Ptr{fmpq}, Ptr{fmpq}), t, d)
       end
     end
   end

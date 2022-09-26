@@ -22,6 +22,8 @@
 
   S = lattice(ambient_space(L),basis_matrix(L)[:2,:])
   D = discriminant_group(S)
+  D0, _ = sub(D,gens(D)[1:0])
+  @test order(D0)==1
   D1, _ = sub(D,gens(D)[1:1])
   @test order(D1)==2
 
@@ -89,11 +91,11 @@
   T = Hecke.discriminant_group(L)
   S, i = sub(T, gens(T))
   @test all([preimage(i,i(s))==s for s in gens(S)])
-  @test basis_matrix(Hecke.cover(Hecke.orthogonal_submodule_to(T, S)[1])) == basis_matrix(L)
+  @test basis_matrix(Hecke.cover(Hecke.orthogonal_submodule(T, S)[1])) == basis_matrix(L)
   L1 = Zlattice(identity_matrix(ZZ,10))
   T1 = torsion_quadratic_module(L1, 3*L1)
   S1, _ = sub(T1, gens(T1)[1:5])
-  @test ambient_space(Hecke.cover(Hecke.orthogonal_submodule_to(T1, S1)[1])) == ambient_space(L1)
+  @test ambient_space(Hecke.cover(Hecke.orthogonal_submodule(T1, S1)[1])) == ambient_space(L1)
 
   #checks if a TorQuadMod is degenerate
   @test Hecke.is_degenerate(T) == false
