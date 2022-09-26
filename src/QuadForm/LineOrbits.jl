@@ -34,7 +34,7 @@ function LineEnumCtx(K::T, n) where {T}
   return LineEnumCtx{T, elem_type(T)}(K, a, dim, depth, v, length)
 end
 
-function LineEnumCtx(K::T, n::Int) where {T <: Union{GaloisField, GaloisFmpzField}}
+function LineEnumCtx(K::T, n::Int) where {T <: Union{Nemo.GaloisField, Nemo.GaloisFmpzField}}
   a = zero(K)
   v = Vector{elem_type(T)}(undef, n)
   for i in 1:n
@@ -62,7 +62,7 @@ Base.eltype(::Type{LineEnumCtx{T, S}}) where {T, S} = Vector{S}
 
 depth(P::LineEnumCtx) = P.depth
 
-dim(P::LineEnumCtx) = P.dim
+dim(P::Hecke.LineEnumCtx{T,N}) where {T,N} = P.dim
 
 primitive_element(P::LineEnumCtx) = P.a
 
@@ -104,7 +104,7 @@ function next(P::LineEnumCtx)
   return P.v
 end
 
-function next(P::LineEnumCtx{T, S}) where {T <: Union{GaloisField, GaloisFmpzField}, S}
+function next(P::LineEnumCtx{T, S}) where {T <: Union{Nemo.GaloisField, Nemo.GaloisFmpzField}, S}
   if depth(P) > 0
     i = dim(P)
     while true
@@ -134,7 +134,7 @@ function next(P::LineEnumCtx{T, S}) where {T <: Union{GaloisField, GaloisFmpzFie
   return P.v
 end
 
-function Base.getindex(P::Hecke.LineEnumCtx{T, S}, i::BigInt) where {T , S}
+function Base.getindex(P::Hecke.LineEnumCtx{T, S}, i::Union{Integer, BigInt}) where {T , S}
   @assert 1<= i<= length(P)
   K = P.K
   v = Vector{elem_type(K)}(undef, dim(P))
@@ -176,7 +176,7 @@ end
 
 # For prime fields
 function Base.iterate(P::LineEnumCtx{T, S}, state) where
-                                  {T <: Union{GaloisField, GaloisFmpzField}, S}
+                                  {T <: Union{Nemo.GaloisField, Nemo.GaloisFmpzField}, S}
   if state >= P.length
     return nothing
   end
@@ -267,14 +267,14 @@ function line_orbits(G::Vector{T}) where {T <: MatElem{gfp_fmpz_elem}}
       end
     end
     _res = line_orbits(GG)
-    res = Vector{Tuple{Vector{elem_type(F)}, Int}}(undef, length(_res))
+    res = Vector{Vector{elem_type(F)}}(undef, length(_res))
     for i in 1:length(_res)
       t = _res[i][1]
       y = Vector{elem_type(F)}(undef, k)
       for j in 1:k
         y[j] = F(t[j].data)
       end
-      res[i] = y, _res[i][2]
+      res[i] = y
     end
     return res
   else
@@ -297,14 +297,14 @@ function line_orbits(G::Vector{fq_nmod_mat})
       end
     end
     _res = line_orbits(GG)
-    res = Vector{Tuple{Vector{elem_type(F)}, Int}}(undef, length(_res))
+    res = Vector{Vector{elem_type(F)}}(undef, length(_res))
     for i in 1:length(_res)
       t = _res[i][1]
       y = Vector{elem_type(F)}(undef, k)
       for j in 1:k
         y[j] = F(t[j].data)
       end
-      res[i] = y, _res[i][2]
+      res[i] = y
     end
     return res
   else
@@ -332,14 +332,14 @@ function line_orbits(G::Vector{fq_mat})
       GG[i] = map_entries(b -> sum(coeff(b, i) * aa^i for i in 0:(d-1)), G[i])::dense_matrix_type(FF)
     end
     _res = line_orbits(GG)
-    res = Vector{Tuple{Vector{fq}, Int}}(undef, length(_res))
+    res = Vector{Vector{fq}}(undef, length(_res))
     for i in 1:length(res)
       t = _res[i][1]
       y = Vector{elem_type(F)}(undef, k)
       for j in 1:k
         y[j] = sum(coeff(t[j], i) * a^i for i in 0:(d - 1))
       end
-      res[i] = y, _res[i][2]
+      res[i] = y
     end
     return res
   else
@@ -347,58 +347,36 @@ function line_orbits(G::Vector{fq_mat})
   end
 end
 
-function _line_orbits(G::Vector)
-  K = base_ring(G[1])
-  n = nrows(G[1])
-  P = enumerate_lines(K, n)
-  l = length(P)
-  @vprint :GenRep 1 "Computing orbits of lines of total length $l over $K\n"
-  lines = Vector{eltype(P)}(undef, l)
-  i = 1
-  for v in P
-    lines[i] = deepcopy(v)
-    i += 1
-  end
-
-  if !(K isa GaloisField && K isa GaloisFmpzField)
-    sort!(lines, lt = _isless)
-  end
-
-  res = Tuple{eltype(P), Int}[]
-
-  visited = trues(l)
-  sofar = zero(BigInt)
-  newline = zero_matrix(K, 1, n)
-  newline2 = zero_matrix(K, 1, n)
-  ___isless = __isless(elem_type(K)) # the comparison needs some
-                                     # temporary variables in some cases
-  while sofar < l
-    pt = findfirst(visited)
-    @assert pt !== nothing
-    visited[pt] = false
-    norb = 1
-    cnd = 1
-    orb = Int[pt]
-    while cnd <= norb
-      set!(newline, lines[orb[cnd]])
-      for i in 1:length(G)
-        newline2 = mul!(newline2, newline, G[i])
-        _normalize!(newline2)
-        m = searchsortedfirst(lines, newline2, lt = ___isless)
-        @assert m !== nothing
-        if visited[m]
-          visited[m] = false
-          norb += 1
-          push!(orb, m)
-        end
-      end
-      cnd += 1
-    end
-    push!(res, (lines[pt], norb))
-    sofar = sofar + norb
-  end
-  return res
-end
+#function _line_orbits(G::Vector)
+#  K = base_ring(G[1])
+#  n = nrows(G[1])
+#  P = enumerate_lines(K, n)
+#  l = length(P)
+#  @vprint :GenRep 1 "Computing orbits of lines of total length $l over $K\n"
+#
+#  res = eltype(P)[]
+#
+#  newline = zero_matrix(K, 1, n)
+#  newline2 = zero_matrix(K, 1, n)
+#  ___isless = __isless(elem_type(K))
+#  
+#  for i in 1:l
+#    set!(newline, P[i])
+#    insorted(newline, res, lt = ___isless) && continue
+#
+#    push!(res, P[i])
+#    for i in 1:length(G)
+#      newline2 = mul!(newline2, newline, G[i])
+#      _normalize!(newline2)
+#      
+#      insorted(newline2, res, lt = ___isless) && continue
+#
+#      push!(res, P[i])
+#    end
+#    println(length(res))
+#  end
+#  return res
+#end
 
 ################################################################################
 #
@@ -456,6 +434,18 @@ function _isless(x::Vector{gfp_elem}, y::gfp_mat)
   for i in 1:d
     xi = x[i]
     yi = y[1, i]
+    if xi.data != yi.data
+      return xi.data < yi.data
+    end
+  end
+  return false
+end
+
+function _isless(x::gfp_mat, y::Vector{gfp_elem})
+  d = length(y)
+  for i in 1:d
+    xi = x[1, i]
+    yi = y[i]
     if xi.data != yi.data
       return xi.data < yi.data
     end

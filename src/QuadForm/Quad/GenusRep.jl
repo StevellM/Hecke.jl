@@ -269,6 +269,13 @@ function _aut_order_in_magma(L::ZLat)
   return fmpz(s)
 end
 
+function _my_rand(s, k)
+  L = unique(rand(s,k))
+  while length(L) < k
+    unique!(append!(L, rand(s,k-length(L))))
+  end
+  return L
+end
 
 function random_neighbour(W::ZLat, p, path, so_far, _mult = 1; call = stdcallback, missing_mass = Ref{fmpq}(zero(fmpq)))
   L = Hecke._to_number_field_lattice(W)
@@ -316,11 +323,14 @@ function random_neighbour(W::ZLat, p, path, so_far, _mult = 1; call = stdcallbac
   keep = true
   cont = true
   found = false
-
   attempts = 0
-  while attempts < Int(floor(_mult*25*log(length(LO))))
+  _val = _my_rand(1:length(LO), Int(floor(_mult*40*log(length(LO)))))
+  for i in _val
+    w = LO[i]
     attempts += 1
-    w = rand(LO)
+    if attempts in 0:500:length(_val)
+      println(attempts)
+    end
     dotww = _dotk(w, w)
     if dotww != 0
       continue
