@@ -131,7 +131,7 @@ function _is_principal_maximal_quaternion_generic(a, M, side = :right)
     #@show lll_gram(map_entries(x -> numerator(x), G))
     #@show Hecke._eltseq(G)
 
-    min, v = _shortest_vectors_gram(G)
+    min, v = _shortest_vectors_gram(Vector, G)
 
     if min == degree(base_ring(B))
       for w in v
@@ -900,8 +900,6 @@ function _write_as_product_of_elementary_matrices(N, R)
     append!(trafos, tra)
   end
 
-  #println(sprint(show, "text/plain", Nred))
-
   Nred2 = change_base_ring(R, N)
   for T in trafos
     Nred2 = T * Nred2
@@ -1019,12 +1017,16 @@ function _normalize_column(N, i)
         return N, trafos
       end
     end
+
     # This is the complicated case
     while true
       euc_min = euclid(N[i, i])
       i0 = i
       local e
       for j in (i + 1):n
+        if iszero(N[j, i])
+          continue
+        end
         e = euclid(N[j, i])
         if (euc_min == -1 && e != - 1) || (e < euc_min)
           i0 = j

@@ -1,4 +1,5 @@
-export is_zero_row, howell_form, kernel_basis, is_diagonal, diagonal, saturate
+export is_zero_row, howell_form, kernel_basis, is_diagonal, diagonal, saturate,
+       has_finite_multiplicative_order, multiplicative_order
 
 import Nemo.matrix
 
@@ -423,6 +424,16 @@ function is_hnf(x::fmpz_mat, shape::Symbol)
   end
 end
 
+function Nemo._hnf(x::MatElem{fmpz})
+  if nrows(x) * ncols(x) > 100
+    s = sparse_matrix(x)
+    if sparsity(s) > 0.7
+      return matrix(Hecke.hnf(s))
+    end
+  end
+  return Nemo.__hnf(x) # ist die original Nemo flint hnf
+end
+
 ################################################################################
 #
 #  Is LLL?
@@ -588,6 +599,10 @@ function lift(a::fmpz_mod_mat)
     end
   end
   return z
+end
+
+function lift(x::gfp_fmpz_mat)
+  return map_entries(lift , x)
 end
 
 function lift_nonsymmetric(a::nmod_mat)
@@ -2351,4 +2366,141 @@ function map_entries(R::Nemo.FmpzModRing, M::fmpz_mat)
     end
   end
   return N
+end
+
+################################################################################
+#
+#  multiplicative order fmpz/fmpq_mat
+#
+################################################################################
+
+# we avoid to compute twice the minpoly in case of finite order
+function _has_finite_multiplicative_order(f)
+  @assert is_square(f)
+  chi = minpoly(f)
+  !Hecke.is_squarefree(chi) && return (false, [Pair(chi, 1)])
+  fact = collect(factor(chi))
+  return all(p -> is_cyclotomic_polynomial(p[1]), fact), fact
+end
+
+@doc Markdown.doc"""
+    has_finite_multiplicative_order(M::Union{fmpz_mat, fmpq_mat}) -> Bool
+
+Given a matrix `M` with integral or rational entries, return whether `M` has
+finite multiplicative order.
+
+# Examples
+
+```jldoctest
+julia> M = matrix(QQ, 4, 4, [ 1  0  0  0;
+                              0 -1  0  0;
+                             -1  0 -1 -1;
+                              1  1  2  1])
+[ 1    0    0    0]
+[ 0   -1    0    0]
+[-1    0   -1   -1]
+[ 1    1    2    1]
+
+julia> has_finite_multiplicative_order(M)
+true
+
+julia> N = matrix(ZZ, 2, 2, [1 1;
+                             0 1])
+[1   1]
+[0   1]
+
+julia> has_finite_multiplicative_order(N)
+false
+```
+"""
+function has_finite_multiplicative_order(f::Union{fmpz_mat, fmpq_mat})
+  @req is_square(f) "Matrix must be square"
+  return _has_finite_multiplicative_order(f)[1]
+end
+
+@doc Markdown.doc"""
+    multiplicative_order(M::Union{fmpz_mat, fmpq_mat}) -> IntExt
+
+Given a matrix `M` with integral or rational entries, return the multiplicative
+order of `M`. Note that this can be infinite, in which case the function returns
+`PosInf()`.
+
+# Examples
+
+```jldoctest
+julia> M = matrix(QQ, 4, 4, [ 1  0  0  0;
+                              0 -1  0  0;
+                             -1  0 -1 -1;
+                              1  1  2  1])
+[ 1    0    0    0]
+[ 0   -1    0    0]
+[-1    0   -1   -1]
+[ 1    1    2    1]
+
+julia> multiplicative_order(M)
+4
+
+julia> N = matrix(ZZ, 2, 2, [1 1;
+                             0 1])
+[1   1]
+[0   1]
+
+julia> multiplicative_order(N)
+PosInf()
+```
+"""
+function multiplicative_order(f::Union{fmpz_mat, fmpq_mat})
+  @req is_invertible(f) "Matrix must be invertible"
+  bool, fact = _has_finite_multiplicative_order(f)
+  bool || return PosInf()
+  degs = unique([degree(p[1]) for p in fact])
+  exps = Int.(euler_phi_inv(degs[1]))
+  for i in 1:length(degs)
+    union!(exps, Int.(euler_phi_inv(degs[i])))
+  end
+  maxdeg = lcm(exps)
+  divmd = sort(divisors(maxdeg))
+  n = findfirst(k -> isone(f^k), divmd)
+  @assert n !== nothing
+  return divmd[n]
+end
+
+################################################################################
+#
+#  Linear solve context
+#
+################################################################################
+
+mutable struct LinearSolveCtx{S, T}
+  A::S
+  R::S # rref
+  U::S # U * A = R
+  v::T # temp vector
+  pivots::Vector{Int}
+
+  function LinearSolveCtx{S}() where {S}
+    return new{S, Vector{coefficient_type(S)}}()
+  end
+
+  function LinearSolveCtx(A::MatElem{T}, side::Symbol) where {T <: RingElem}
+    @assert side === :right
+    r, R, U = _rref_with_trans(A)
+    pivots = _get_pivots_ut(R)
+    v = [zero(base_ring(A)) for i in 1:ncols(U)]
+    z = new{typeof(A), Vector{T}}(A, R, U, v, pivots)
+  end
+end
+
+function solve_context(A; side::Symbol)
+  return LinearSolveCtx(A, side)
+end
+
+function solve(L::LinearSolveCtx, b::Vector)
+  L.v = mul!(L.v, L.U, b)
+  fl, w = can_solve_rref_ut(L.R, L.v; pivots = L.pivots)
+  # entries of w are aliasing v, which we don't want for some reason
+  #if fl
+  #  @assert L.A * w == b
+  #end
+  return fl, deepcopy(w)
 end

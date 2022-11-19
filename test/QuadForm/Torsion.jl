@@ -120,6 +120,12 @@
   T1 = Hecke.discriminant_group(L1)
   @test Hecke.gram_matrix_quadratic(normal_form(T1)[1]) == matrix(QQ, 2, 2, [1//2,0,0,1//4])
 
+  L = Zlattice(gram=QQ[-2 -1 -1 -1 1 1 1 -1 0 0 0 0 0 0 0 0; -1 -2 0 -1 0 0 0 -1 0 0 0 0 0 0 0 0; -1 0 -2 -1 1 1 1 0 0 0 0 0 0 0 0 0; -1 -1 -1 -2 1 1 1 0 0 0 0 0 0 0 0 0; 1 0 1 1 -2 -1 -1 0 0 0 0 0 0 0 0 0; 1 0 1 1 -1 -2 -1 0 0 0 0 0 0 0 0 0; 1 0 1 1 -1 -1 -2 0 0 0 0 0 0 0 0 0; -1 -1 0 0 0 0 0 -2 0 0 0 0 0 0 0 0; 0 0 0 0 0 0 0 0 -2 0 0 0 0 0 0 0; 0 0 0 0 0 0 0 0 0 -2 0 0 0 0 0 0; 0 0 0 0 0 0 0 0 0 0 -2 0 0 0 0 0; 0 0 0 0 0 0 0 0 0 0 0 -2 0 0 0 0; 0 0 0 0 0 0 0 0 0 0 0 0 -2 0 0 0; 0 0 0 0 0 0 0 0 0 0 0 0 0 -2 0 0; 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2 0; 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2])
+  D = discriminant_group(L)
+  nf = QQ[0 1//2 0 0 0 0 0 0 0 0; 1//2 0 0 0 0 0 0 0 0 0; 0 0 0 1//2 0 0 0 0 0 0; 0 0 1//2 0 0 0 0 0 0 0; 0 0 0 0 0 1//2 0 0 0 0; 0 0 0 0 1//2 0 0 0 0 0; 0 0 0 0 0 0 0 1//2 0 0; 0 0 0 0 0 0 1//2 0 0 0; 0 0 0 0 0 0 0 0 1//2 0; 0 0 0 0 0 0 0 0 0 3//2]
+  @test Hecke.gram_matrix_quadratic(normal_form(D)[1]) == nf
+
+
   L1 = Zlattice(gram=ZZ[-4 0 0; 0 4 0; 0 0 -2])
   AL1 = discriminant_group(L1)
   L2 = Zlattice(gram=ZZ[-4 0 0; 0 -4 0; 0 0 2])
@@ -192,4 +198,116 @@
   gen = genera((0,6), 2^3*3^3*5^2)
   disc = discriminant_group.(gen)
   @test all(T -> length(collect(T)) == order(T), disc)
+
+  # isometry
+
+  L = Zlattice(gram=matrix(ZZ, [[2, -1, 0, 0, 0, 0],[-1, 2, -1, -1, 0, 0],[0, -1, 2, 0, 0, 0],[0, -1, 0, 2, 0, 0],[0, 0, 0, 0, 6, 3],[0, 0, 0, 0, 3, 6]]))
+  T = discriminant_group(L)
+  N, S = normal_form(T)
+  bool, phi = @inferred is_isometric_with_isometry(T, N)
+  @test bool
+  @test S.map_ab == phi.map_ab
+  _, phi = is_isometric_with_isometry(T, T)
+  @test phi.map_ab == id_hom(T).map_ab
+  rq, _ = radical_quadratic(T)
+  @test is_isometric_with_isometry(rq, torsion_quadratic_module(QQ[2;]))[1]
+  Tsub, _ = sub(T, [T[1]])
+  @test is_semi_regular(Tsub)
+  @test !is_isometric_with_isometry(T, Tsub)[1]
+  @test !is_anti_isometric_with_anti_isometry(T, Tsub)[1]
+  @test_throws ArgumentError is_isometric_with_isometry(T, rescale(T, 1//2))
+
+  Tsub, _ = sub(T, [2*T[1], 3*T[2]])
+  @test !is_semi_regular(Tsub)
+  rq, i = radical_quadratic(Tsub)
+  bool, j = @inferred has_complement(i)
+  N = domain(j)
+  T2, _, _ = orthogonal_sum(rq, N)
+  @test is_degenerate(T2)
+  bool, phi = @inferred is_isometric_with_isometry(Tsub, T2)
+  @test bool
+  @test is_bijective(phi)
+  @test !is_anti_isometric_with_anti_isometry(Tsub, T2)[1]
+  rq2, _ = radical_quadratic(Tsub) # the same as before but diffrent julia object
+  @test is_isometric_with_isometry(rq, rq2)[1]
+  @test is_anti_isometric_with_anti_isometry(rq, rq2)[1]
+
+  L = root_lattice(:E, 8)
+  @test sprint(show, "text/plain", rescale(discriminant_group(L), 2)) isa String
+  agg = automorphism_group_generators(L)
+  for f in agg
+    if isone(f)
+      continue
+    end
+    L1 = invariant_lattice(L, f)
+    L2 = orthogonal_submodule(L, L1)
+    qL1 = discriminant_group(L1)
+    qL2 = discriminant_group(L2)
+    bool, phi = @inferred is_anti_isometric_with_anti_isometry(qL2, qL1)
+    @test bool
+    LL = overlattice(phi)
+    @test det(LL) == 1 && iseven(LL)
+  end
+
+  f = matrix(QQ, 8, 8, [-1 0 0 0 0 0 0 0;
+                        0 -1 0 0 0 0 0 0;
+                        0 0 -1 0 0 0 0 0;
+                        0 0 0 -1 0 0 0 0;
+                        0 0 0 0 -1 0 0 0;
+                        0 0 0 0 0 -1 0 0;
+                        0 0 0 0 0 0 -1 0;
+                        0 0 0 0 0 0 0 -1])
+  Lf = invariant_lattice(L, f)
+  @test rank(Lf) == 0
+  qLf = discriminant_group(Lf)
+  @test modulus_quadratic_form(qLf) == 2
+
+  # orthogonal sum
+
+  B = matrix(FlintQQ, 3, 3 ,[1, 1, 0, 1, -1, 0, 0, 1, -1])
+  G = matrix(FlintQQ, 3, 3 ,[1, 0, 0, 0, 1, 0, 0, 0, 1])
+  L1 = Zlattice(B, gram = G)
+  qL1 = discriminant_group(L1)
+  Z = torsion_quadratic_module(QQ[1;])
+  @test_throws ArgumentError orthogonal_sum(qL1, Z)
+  @test_throws ArgumentError orthogonal_sum(qL1, rescale(Z, 2))
+
+  B = matrix(FlintQQ, 4, 4 ,[2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 1, 1, 1, 1])
+  G = matrix(FlintQQ, 4, 4 ,[1//2, 0, 0, 0, 0, 1//2, 0, 0, 0, 0, 1//2, 0, 0, 0, 0, 1//2])
+  L2 = Zlattice(B, gram = G)
+  qL2 = discriminant_group(L2)
+  Z = torsion_quadratic_module(QQ[2;])
+  q, _, _ = @inferred orthogonal_sum(qL2, Z)
+  @test is_isometric_with_isometry(q, qL2)[1]
+  @test modulus_bilinear_form(q) == modulus_bilinear_form(qL2)
+  @test modulus_quadratic_form(q) == modulus_quadratic_form(Z)
+
+  L3, _, _ = orthogonal_sum(L1, L2)
+  qL3 = discriminant_group(L3)
+
+  q, qL1inq, qL2inq = @inferred orthogonal_sum(qL1, qL2)
+  @test is_injective(qL1inq) && is_injective(qL2inq)
+  bool, _ = is_isometric_with_isometry(qL3, q)
+  @test bool
+
+  # primary/elementary
+
+  L = Zlattice(gram=matrix(ZZ, [[2, -1, 0, 0, 0, 0],[-1, 2, -1, -1, 0, 0],[0, -1, 2, 0, 0, 0],[0, -1, 0, 2, 0, 0],[0, 0, 0, 0, 6, 3],[0, 0, 0, 0, 3, 6]]))
+  T = discriminant_group(L)
+  Tsub, _ = sub(T, [2*T[1], 3*T[2]])
+  @test_throws ArgumentError is_primary_with_prime(Tsub)
+  bool, p = @inferred is_primary_with_prime(T)
+  @test !bool && p == -1
+  @test is_primary(primary_part(T, 2)[1], 2)
+  @test !is_elementary(primary_part(T, 3)[1], 3)
+
+  for i in [6,7,8]
+    L = root_lattice(:E, i)
+    qL = discriminant_group(L)
+    @test is_elementary(qL, 9-i)
+  end
+  L = orthogonal_sum(root_lattice(:A, 7), root_lattice(:D, 7))[1]
+  qL = discriminant_group(L)
+  @test is_primary(qL, 2) && !is_elementary(qL, 2)
 end
+

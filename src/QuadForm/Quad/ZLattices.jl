@@ -2,7 +2,7 @@ export *,+, basis_matrix, ambient_space, base_ring, base_field, root_lattice,
        kernel_lattice, invariant_lattice, hyperbolic_plane_lattice, signature_tuple,
        root_sublattice, root_lattice_recognition, root_lattice_recognition_fundamental,
        glue_map, overlattice, primitive_closure, is_primitive,
-       lattice_in_same_ambient_space
+       lattice_in_same_ambient_space, maximal_even_lattice, is_maximal_even
 
 # scope & verbose scope: :Lattice
 @doc Markdown.doc"""
@@ -65,7 +65,7 @@ function Zlattice(;gram, check=true)
 end
 
 @doc Markdown.doc"""
-    lattice(V::QuadSpace, B::MatElem) -> ZLat
+    lattice(V::QuadSpace{FlintRationalField, fmpq_mat}, B::fmpq_mat; isbasis=true, check=true) -> ZLat
 
 Return the Z-lattice with basis matrix $B$ inside the quadratic space $V$.
 """
@@ -113,9 +113,9 @@ julia> L = Zlattice(gram=ZZ[-1 0; 0 -1])
 Quadratic lattice of rank 2 and degree 2 over the rationals
 
 julia> shortest_vectors(rescale(L, -1))
-2-element Vector{fmpz_mat}:
- [0   1]
- [1   0]
+2-element Vector{Vector{fmpz}}:
+ [0, 1]
+ [1, 0]
 ```
 """
 function rescale(L::ZLat, r)
@@ -377,7 +377,33 @@ end
 
 # documented in ../Lattices.jl
 
-function is_isometric(L::ZLat, M::ZLat; ambient_representation::Bool = true)
+function is_isometric(L::ZLat, M::ZLat)
+  if rank(L) != rank(M)
+    return false
+  end
+
+  if rank(L) == 1
+    return gram_matrix(L) == gram_matrix(M)
+  end
+
+  if rank(L) == 2
+    A = gram_matrix(L)
+    B = gram_matrix(M)
+    d = denominator(A)
+    A = change_base_ring(ZZ, d * A)
+    B = change_base_ring(ZZ, d * B)
+    q1 = binary_quadratic_form(ZZ, A[1,1], 2 * A[1,2], A[2,2])
+    q2 = binary_quadratic_form(ZZ, B[1,1], 2 * B[1,2], B[2,2])
+    return is_isometric(q1, q2)
+  end
+
+  if is_definite(L) && is_definite(M)
+    return is_isometric_with_isometry(L, M)[1]
+  end
+  return _is_isometric_indef(L, M)
+end
+
+function is_isometric_with_isometry(L::ZLat, M::ZLat; ambient_representation::Bool = false)
   @req is_definite(L) && is_definite(M) "The lattices must be definite"
 
   if rank(L) != rank(M)
@@ -930,10 +956,212 @@ end
 #
 ################################################################################
 
-function maximal_integral_lattice(L::ZLat)
+# kept for testing
+function _maximal_integral_lattice(L::ZLat)
   LL = _to_number_field_lattice(L)
   M = maximal_integral_lattice(LL)
   return _to_ZLat(M, V = ambient_space(L))
+end
+
+
+@doc Markdown.doc"""
+    maximal_even_lattice(L::ZLat, p) -> ZLat
+
+Given an even lattice `L` and a prime number `p` return an overlattice of `M`
+which is maximal at `p` and agrees locally with `L` at all other places.
+
+Recall that $L$ is called even if $\Phi(x,x) \in 2 \ZZ$ for all $x in L$.
+"""
+function maximal_even_lattice(L::ZLat, p)
+  while true
+    ok, L = is_maximal_even(L, p)
+    if ok
+      return L
+    end
+  end
+end
+
+@doc Markdown.doc"""
+    maximal_even_lattice(L::ZLat) -> ZLat
+
+Return a maximal even overlattice `M` of the even lattice `L`.
+
+Recall that $L$ is called even if $\Phi(x,x) \in 2 \ZZ$ for all $x in L$.
+Note that the genus of `M` is uniquely determined by the genus of `L`.
+"""
+function maximal_even_lattice(L::ZLat)
+  @req mod(ZZ(norm(L)),2) == 0 "the lattice must be even"
+  for p in prime_divisors(ZZ(det(L)))
+    L = maximal_even_lattice(L, p)
+  end
+  return L
+end
+
+function maximal_integral_lattice(L::ZLat)
+  @req denominator(norm(L))==1 "the quadratic form is not integral"
+  L2 = rescale(L, 2)
+  LL2 = maximal_even_lattice(L2)
+  return rescale(LL2, QQ(1//2))
+end
+
+
+@doc Markdown.doc"""
+    is_maximal_even(L::ZLat, p) -> Bool, ZLat
+
+Return if the (`p`-locally) even lattice `L` is maximal at `p` and an even overlattice `M`
+of `L` with $[M:L]=p$ if `L` is not maximal and $1$ else.
+
+Recall that $L$ is called even if $\Phi(x,x) \in 2 \ZZ$ for all $x in L$.
+"""
+
+function is_maximal_even(L::ZLat, p)
+  @req denominator(scale(L))==1 "the bilinear form is not integral"
+  @req p!=2 || mod(ZZ(norm(L)),2)==0 "the bilinear form is not even"
+
+  # o-maximal lattices are classified
+  # see Kirschmer Lemma 3.5.3
+  if valuation(det(L), p)<= 1
+    return true, L
+  end
+  G = change_base_ring(ZZ, gram_matrix(L))
+  k = GF(p)
+  Gmodp = change_base_ring(k, G)
+  r, V = left_kernel(Gmodp)
+  VZ = lift(V[1:r,:])
+  H = divexact(VZ * G * transpose(VZ), p)
+  if p != 2
+    Hk = change_base_ring(k, H)
+    ok, __v = _isisotropic_with_vector_finite(Hk)
+    if !ok
+      @assert r == 2
+      return true, L
+    end
+    _v = matrix(k, 1, length(__v), __v)
+    v = lift(_v)
+    sp = (v * H * transpose(v))[1,1]
+    valv = iszero(sp) ? inf : valuation(sp, p)
+    v = v * VZ
+    sp = (v * G * transpose(v))[1,1]
+    valv = iszero(sp) ? inf : valuation(sp, p)
+    @assert valv >= 2
+    v = QQ(1, p) * change_base_ring(QQ,v)
+  else
+    p = ZZ(p)
+    R8 = ResidueRing(ZZ, ZZ(8))
+    R4 = ResidueRing(ZZ, ZZ(4))
+    findzero_mod4 = function(HR)
+      z = R4(0)
+      i = findfirst(==(z), R4.(diagonal(HR)))
+      v = zero_matrix(ZZ, 1, r)
+      if !(i isa Nothing)
+        v[1, i] = 1
+        return true, v
+      else
+        return false, v
+      end
+    end
+    HR8 = change_base_ring(R8, H)
+    ok, v = findzero_mod4(HR8)
+    B = identity_matrix(R8, nrows(H))
+    if !ok
+      D, B = _jordan_2_adic(HR8)
+      ok, v = findzero_mod4(D)
+    end
+    if !ok
+      D, B1 = Hecke._normalize(D, p)
+      B = B1 * B
+      ok, v = findzero_mod4(D)
+    end
+    if !ok
+      D, B1 = _two_adic_normal_forms(D, p, partial = true)
+      B = B1 * B
+      ok, v = _is_isotropic_with_vector_mod4(D)
+      if !ok
+        return true, L
+      end
+    end
+    v = v * B
+    v = map_entries(ZZ, v)
+    v = v * VZ
+    v = QQ(1,2) * change_base_ring(QQ, v)
+  end
+  v = v * basis_matrix(L)
+  B = vcat(basis_matrix(L), v)
+  LL = lattice(ambient_space(L), B, isbasis=false)
+  @assert det(L) ==  det(LL) * p^2 && valuation(norm(LL), p) >= 0
+  @assert denominator(scale(LL))==1
+  @assert p!=2 || mod(ZZ(norm(LL)),2)==0
+  return false, LL
+end
+
+@doc Markdown.doc"""
+    _is_isotropic_with_vector_mod4(Gnormal) -> Bool, MatElem
+
+Return if `Gnormal` is isotropic mod 4 and an isotropic vector.
+
+Assumes that G is in partial 2-adic normal form.
+"""
+function _is_isotropic_with_vector_mod4(Gnormal)
+  R4 = ResidueRing(ZZ, 4)
+  G = change_base_ring(R4, Gnormal)
+  D = diagonal(G)
+  z = R4(0)
+  v = zero_matrix(ZZ, 1, ncols(G))
+  i = findfirst(==(z), D)
+  if !(i isa Nothing)
+    v[1, i] = 1
+    return true, v
+  end
+  @assert nrows(G) <= 6 "$G"
+  if nrows(G) == 1
+    return false, v
+  end
+  # hardcoded isotropic vector for G in normal form (and no 0 mod 4 on the diag)
+  if nrows(G) == 2
+    if G[1,2] == 0 && D[1]+D[2] == 0
+      v[1,1] = 1
+      v[1,2] = 1
+      return true, v
+    else
+      return false, v
+    end
+  end
+  if nrows(G) == 3
+    if D[3] in [R4(1),R4(3)]
+      return false, v
+    end
+    @assert D[3] == R4(2)
+    if sum(D[2:3]) == 0
+      v[1,2] = 1; v[1,3] = 1
+      return true, v
+    end
+    if G[1,2] == 0 && sum(D[1:2]) == 0
+      v[1,1] = 1; v[1,2] = 1
+      return true, v
+    end
+    if G[1,2] == 0 && sum(D) == 0
+      v[1,1] = 1; v[1,2] = 1; v[1,3] = 1
+      return true, v
+    end
+  end
+  n = nrows(G)
+  if D[1]+D[n] == 0
+    v[1,1] = 1
+    v[1,n] = 1
+    return true, v
+  end
+  if D[n-1]+D[n] == 0
+    v[1,n-1] = 1
+    v[1,n] = 1
+    return true, v
+  end
+  if D[1]+D[n-1] + D[n] == 0
+    v[1,1] = 1
+    v[1,n-1] = 1
+    v[1,n] = 1
+    return true, v
+  end
+  error("Something wrong!")
 end
 
 ################################################################################
@@ -1158,7 +1386,7 @@ function lll(L::ZLat; same_ambient::Bool = true)
     G2, U = lll_gram_indef_ternary_hyperbolic(-M)
     G2 = -G2
   elseif det(M) == 1
-    G2, U = lll_gram_indef_with_tranform(M)
+    G2, U = lll_gram_indef_with_transform(M)
   else
     # In the modular case, one may perform another LLL-reduction to obtain
     # a better output
@@ -1353,7 +1581,7 @@ function _ADE_type_with_isometry_irreducible(L)
   if e == -1
     R = rescale(R,-1)
   end
-  t, T = is_isometric(R, L, ambient_representation=false)
+  t, T = is_isometric_with_isometry(R, L, ambient_representation=false)
   @hassert :Lattice 1 t
   return ADE, T
 end
@@ -1623,3 +1851,297 @@ function overlattice(glue_map::TorQuadModMor)
   return lattice(ambient_space(S), B[end-rank(S)-rank(R)+1:end,:])
 end
 
+################################################################################
+#
+#  Primary/elementary lattices
+#
+################################################################################
+
+@doc Markdown.doc"""
+    is_primary_with_prime(L::ZLat) -> Bool, fmpz
+
+Given a $\mathbb Z$-lattice `L`, return whether `L` is primary, that is whether `L`
+is integral and its discriminant group (see [`discriminant_group`](@ref)) is a
+`p`-group for some prime number `p`. In case it is, `p` is also returned as
+second output.
+
+Note that for unimodular lattices, this function returns `(true, 1)`. If the
+lattice is not primary, the second return value is `-1` by default.
+"""
+function is_primary_with_prime(L::ZLat)
+  @req is_integral(L) "L must be integral"
+  d = ZZ(abs(det(L)))
+  if d == 1
+    return true, d
+  end
+  pd = prime_divisors(d)
+  if length(pd) != 1
+    return false, ZZ(-1)
+  end
+  return true, pd[1]
+end
+
+@doc Markdown.doc"""
+    is_primary(L::ZLat, p::Union{Integer, fmpz}) -> Bool
+
+Given an integral $\mathbb Z$-lattice `L` and a prime number `p`,
+return whether `L` is `p`-primary, that is whether its discriminant group
+(see [`discriminant_group`](@ref)) is a `p`-group.
+"""
+function is_primary(L::ZLat, p::Union{Integer, fmpz})
+  bool, q = is_primary_with_prime(L)
+  return bool && q == p
+end
+
+@doc Markdown.doc"""
+    is_unimodular(L::ZLat) -> Bool
+
+Given an integral $\mathbb Z$-lattice `L`, return whether `L` is unimodular,
+that is whether its discriminant group (see [`discriminant_group`](@ref))
+is trivial.
+"""
+is_unimodular(L::ZLat) = is_primary(L, 1)
+
+@doc Markdown.doc"""
+    is_elementary_with_prime(L::ZLat) -> Bool, fmpz
+
+Given a $\mathbb Z$-lattice `L`, return whether `L` is elementary, that is whether
+`L` is integral and its discriminant group (see [`discriminant_group`](@ref)) is
+an elemenentary `p`-group for some prime number `p`. In case it is, `p` is also
+returned as second output.
+
+Note that for unimodular lattices, this function returns `(true, 1)`. If the lattice
+is not elementary, the second return value is `-1` by default.
+"""
+function is_elementary_with_prime(L::ZLat)
+  bool, p = is_primary_with_prime(L)
+  bool || return false, ZZ(-1)
+  if !is_integer(p*scale(dual(L)))
+    return false, ZZ(-1)
+  end
+  return bool, p
+end
+
+@doc Markdown.doc"""
+    is_elementary(L::ZLat, p::Union{Integer, fmpz}) -> Bool
+
+Given an integral $\mathbb Z$-lattice `L` and a prime number `p`, return whether
+`L` is `p`-elementary, that is whether its discriminant group
+(see [`discriminant_group`](@ref)) is an elementary `p`-group.
+"""
+function is_elementary(L::ZLat, p::Union{Integer, fmpz})
+  bool, q = is_elementary_with_prime(L)
+  return bool && q == p
+end
+
+################################################################################
+#
+#  Isometry test indefinite lattices
+#
+################################################################################
+
+@doc Markdown.doc"""
+    reflection(gram::fmpq_mat, v::fmpq_mat) -> fmpq_mat
+
+Return the matrix representation of the orthogonal reflection in the row vector `v`.
+"""
+function reflection(gram::MatElem, v::MatElem)
+  n = ncols(gram)
+  E = identity_matrix(base_ring(gram), n)
+  c = base_ring(gram)(2) * ((v * gram * transpose(v)))[1,1]^(-1)
+  ref = zero_matrix(base_ring(gram), n, n)
+  for k in 1:n
+    ref[k,:] = E[k,:] - c*(E[k,:] * gram * transpose(v))*v
+  end
+  return ref
+end
+
+@doc Markdown.doc"""
+    _decompose_in_reflections(G::fmpq_mat, T::fmpq_mat, p, nu) -> (err, Vector{fmpq_mat})
+
+Decompose the approximate isometry `T` into a product of reflections
+and return the error.
+
+The algorithm follows Shimada [Shim2018](@cite)
+The error depends on the approximation error of `T`, i.e. $T G T^t - G$.
+
+# Arguments
+- `G::fmpq_mat`: a diagonal matrix
+- `T::fmpq_mat`: an isometry up to some padic precision
+- `p`: a prime number
+"""
+function _decompose_in_reflections(G::fmpq_mat, T::fmpq_mat, p)
+  @assert is_diagonal(G)
+  p = ZZ(p)
+  if p == 2
+    delta = 1
+  else
+    delta = 0
+  end
+  gammaL = [valuation(d, p) for d in diagonal(G)]
+  gamma = minimum(gammaL)
+  l = ncols(G)
+  E = parent(G)(1)
+  reflection_vectors = fmpq_mat[]
+  Trem = deepcopy(T)
+  k = 1
+  while k <= l
+    g = Trem[k,:]
+    bm = g - E[k,:]
+    qm = bm * G * transpose(bm)
+    if valuation(qm, p) <= gammaL[k] + 2*delta
+      tau1 = reflection(G, bm)
+      push!(reflection_vectors, bm)
+      Trem = Trem * tau1
+    else
+      bp = g + E[k,:]
+      qp = bp * G * transpose(bp)
+      @assert valuation(qp, p) <= gammaL[k] + 2*delta
+      tau1 = reflection(G, bp)
+      tau2 = reflection(G, E[k,:])
+      push!(reflection_vectors,bp)
+      push!(reflection_vectors,E[k,:])
+      Trem = Trem * tau1 * tau2
+    end
+    k += 1
+  end
+  reverse!(reflection_vectors)
+  R = reduce(*, reflection(G, v) for v in reflection_vectors)
+  err = valuation(T - R, p)
+  return err, reflection_vectors
+end
+
+
+function _is_isometric_indef(L::ZLat, M::ZLat)
+  @req rank(L)>=3 "strong approximation needs rank at least 3"
+  @req degree(L)==rank(L) "lattice needs to be full for now"
+
+  # scale integral
+  n = rank(L)
+  s = scale(M)
+  M = rescale(M,s)
+  L = rescale(L,s)
+  @assert scale(M)==1
+  @assert scale(L)==1
+  g = genus(L)
+  if g != genus(M)
+    return false
+  end
+  S, isS = _improper_spinor_generators(g)
+  if length(S)==0
+    # unique spinor genus
+    return true
+  end
+  f, r = _is_isometric_indef_approx(L, M)
+  return is_zero(isS(r))
+end
+
+function _is_isometric_indef_approx(L::ZLat, M::ZLat)
+  # move to same ambient space
+  qL = ambient_space(L)
+  diag, trafo = Hecke._gram_schmidt(gram_matrix(qL), identity)
+  qL1 = quadratic_space(QQ, diag)
+
+  L1 = lattice(qL1, basis_matrix(L)*inv(trafo))
+  @hassert :Lattice 1 genus(L1) == genus(L)
+  qM = ambient_space(M)
+  b, T = is_isometric_with_isometry(qM, qL1)
+  @assert b  # same genus implies isomorphic space
+  M1 = lattice(qL1, basis_matrix(M)*T)
+  @hassert :Lattice 1 genus(M1) == genus(L)
+  r1 = index(M1,intersect(M1,L1))
+
+  V = ambient_space(L1)
+  gramV = gram_matrix(V)
+  sL = 8//scale(dual(L1))
+  bad = support(2*det(L1))
+  extra = 10
+  @label more_precision
+  targets = Tuple{fmpq_mat,fmpz,Int}[]
+  for p in bad
+    vp = valuation(sL, p) + 1
+    if valuation(r1, p)==0
+      fp = identity_matrix(QQ, dim(qL1))
+      push!(targets,(fp, p , vp))
+      continue
+    end
+    # precision seems to deteriorate along the number of reflections
+    precp = vp + 2*rank(L) + extra
+    # Approximate an isometry fp: Lp --> Mp
+    normalM1, TM1 = Hecke.padic_normal_form(gram_matrix(M1), p, prec=precp)
+    normalL1, TL1 = Hecke.padic_normal_form(gram_matrix(L1), p, prec=precp)
+    @assert normalM1 == normalL1
+    TT = inv(TL1) * TM1
+    fp = inv(basis_matrix(L1))* TT * basis_matrix(M1)
+    if valuation(det(fp)-1,p)<= vp
+      # we want fp in SO(Vp)
+      # compose with a reflection preserving Lp
+      norm_gen = _norm_generator(normalL1, p) * inv(TL1) * basis_matrix(L1)
+      @assert valuation((norm_gen * gramV * transpose(norm_gen))[1,1],p)==valuation(norm(L1), p)
+      fp = reflection(gramV, norm_gen) * fp
+      @assert valuation(det(fp)-1, p)>= vp
+    end
+    # double check that fp: Lp --> Mp
+    M1fp = lattice(V, basis_matrix(L1) * fp)
+    indexp = index(M1,intersect(M1fp, M1))
+    @assert valuation(indexp,p)==0
+    push!(targets,(fp, p, vp))
+  end
+  f = zero_matrix(QQ,0,0)
+  try
+    f = weak_approximation(V, targets)
+  catch e
+    if isa(e, ErrorException) && startswith(e.msg,"insufficient precision of fp")
+      extra = extra + 5
+      @goto more_precision
+    else
+      rethrow(e)
+    end
+  end
+
+  L1f = lattice(V, basis_matrix(L1) * f)
+  indexL1f_M1 = index(M1, intersect(L1f, M1))
+  # confirm computation
+  for p in bad
+    v = valuation(indexL1f_M1, p)
+    @assert v == 0 "$p: $v"
+  end
+  return f, indexL1f_M1
+end
+
+@doc Markdown.doc"""
+    index(L::ZLat, M::ZLat)
+
+Return the index $[L:M]=|L/M|$ of $M$ in $L$.
+"""
+function index(L::ZLat, M::ZLat)
+  b, M = is_sublattice_with_relations(L, M)
+  b || error("M must be a sublattice of L to have a well defined index [L:M]")
+  if rank(L)>rank(M)
+    return inf
+  end
+  return abs(det(M))
+end
+
+function _norm_generator(gram_normal, p)
+  # the norm generator is the last diagonal entry of the first jordan block.
+  # except if the last 2x2 block is a hyperbolic plane
+  R = ResidueRing(ZZ, p)
+  n = ncols(gram_normal)
+  gram_normal = change_base_ring(ZZ, gram_normal)
+  gram_modp = change_base_ring(R, gram_normal)
+  ind,vals = _block_indices_vals(gram_modp, p)
+  @assert vals[1]==0
+  if length(ind)==1
+    i = nrows(gram_normal)
+  else
+    i = ind[2]-1
+  end
+  E = identity_matrix(QQ, n)
+  q = gram_normal[i,i]
+  if q!=0 && valuation(q, p) <= 1
+    return E[i,:]
+  end
+  @assert p==2
+  return E[i,:] + E[i-1,:]
+end

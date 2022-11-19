@@ -191,7 +191,12 @@ end
   s = sprint(show, "text/plain", Lr0)
   @test occursin("lattice", s)
 
+  # root lattice recognition
+
   L = Zlattice(gram=ZZ[4;])
+  LL,i,j = orthogonal_sum(L,L)
+  @test LL == i(L)+j(L)
+  @test L == preimage(i, LL)
   R = @inferred root_sublattice(L)
   @test 0 == rank(R)
   L = root_lattice(:A,2)
@@ -205,10 +210,17 @@ end
   R = root_lattice_recognition_fundamental(L)
   @test gram_matrix(R[3][1])==gram_matrix(root_lattice(R[2][1]...))
 
+
+  B = matrix(FlintQQ, 6, 6 ,[1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1]);
+  G = matrix(FlintQQ, 6, 6 ,[3, 1, -1, 1, 0, 0, 1, 3, 1, 1, 1, 1, -1, 1, 3, 0, 0, 1, 1, 1, 0, 4, 2, 2, 0, 1, 0, 2, 4, 2, 0, 1, 1, 2, 2, 4]);
+  L = Zlattice(B, gram = G);
+  R = root_lattice_recognition(L)
+  @test (isempty(R[1]) && isempty(R[2]))
+
   # isometry testing
   C1 = root_lattice(:A, 2)
   C1m = rescale(C1,-1)
-  @test is_isometric(C1m, C1m)[1]
+  @test is_isometric(C1m, C1m)
   # automorphisms
   C2 = (1//3)*C1
 
@@ -235,7 +247,7 @@ end
       Ge = automorphism_group_generators(imL, ambient_representation = false)
       test_automorphisms(imL, Ge, false)
       @test automorphism_group_order(L) == o
-      @test is_isometric(imL, imL)[1]
+      @test is_isometric_with_isometry(imL, imL)[1]
     end
   end
 
@@ -260,14 +272,14 @@ end
     X = _random_invertible_matrix(n, -3:3)
     @assert abs(det(X)) == 1
     L2 = Zlattice(gram = X * G * transpose(X))
-    b, T = is_isometric(L, L2, ambient_representation = false)
+    b, T = is_isometric_with_isometry(L, L2, ambient_representation = false)
     @test b
     @test T * gram_matrix(L2) * transpose(T) == gram_matrix(L)
     L2 = Zlattice(X, gram = G)
-    b, T = is_isometric(L, L2, ambient_representation = false)
+    b, T = is_isometric_with_isometry(L, L2, ambient_representation = false)
     @test b
     @test T * gram_matrix(L2) * transpose(T) == gram_matrix(L)
-    b, T = is_isometric(L, L2, ambient_representation = true)
+    b, T = is_isometric_with_isometry(L, L2, ambient_representation = true)
     @test b
     @test T * gram_matrix(ambient_space(L2)) * transpose(T) ==
     gram_matrix(ambient_space(L))
@@ -282,7 +294,7 @@ end
     X = change_base_ring(FlintQQ, _random_invertible_matrix(n, -3:3))
     @assert abs(det(X)) == 1
     L2 = Zlattice(gram = X * gram_matrix(L) * transpose(X))
-    b, T = is_isometric(L, L2, ambient_representation = false)
+    b, T = is_isometric_with_isometry(L, L2, ambient_representation = false)
     @test b
     @test T * gram_matrix(L2) * transpose(T) == gram_matrix(L)
   end
@@ -332,6 +344,8 @@ end
   # local modification
   L = rescale(Hecke.root_lattice(:A,3),15)
   M = Hecke.maximal_integral_lattice(L)
+  M1 = Hecke._maximal_integral_lattice(L) # legacy
+  @test genus(M) == genus(M1)
   for p in prime_divisors(ZZ(discriminant(L)))
     M = Hecke.local_modification(M, L, p)
   end
@@ -408,11 +422,10 @@ end
   @test rank(N) == 0
   @test basis_matrix(invariant_lattice(L, identity_matrix(QQ, 2))) == basis_matrix(L)
 
-  randlist = rand(2:20,10)
-  L = [root_lattice(:D,i) for i in randlist]
-  @test any(l -> discriminant(l) == 4, L)
-  @test any(iseven, L)
-  @test any(l -> norm(l) == 2, L)
+  L = [root_lattice(:D,i) for i in 2:10]
+  @test all(l -> det(l) == 4, L)
+  @test all(iseven, L)
+  @test all(l -> norm(l) == 2, L)
 
 
   @test root_lattice(:D, 3) != root_lattice(:A, 2)
@@ -441,8 +454,7 @@ end
   @test norm(L) == 2
   @test norm(L) == 2 # tests caching
 
-  for i in 1:10
-    n = rand(-30:30)
+  for n in 1:10
     L = hyperbolic_plane_lattice(n)
     @test iseven(L)
     @test det(L) == -n^2
@@ -488,7 +500,7 @@ end
   @test L == LL
 
   LL = lll(L, same_ambient = false) # L and LL are not equal, but isometric
-  @test_broken false && is_isometric(L, LL)[1] # tests takes too long
+  @test_broken false && is_isometric_with_isometry(L, LL)[1] # tests takes too long
 
   L = representative(genera((2,1), -1)[1])
   LL = lll(L)
@@ -554,5 +566,45 @@ end
 
   L2 = @inferred overlattice(glue)
   @test L2 == L  # We found back our initial overlattice
+
+  # primary and elementary lattices
+
+  L = Zlattice(gram=matrix(ZZ, [[2, -1, 0, 0, 0, 0],[-1, 2, -1, -1, 0, 0],[0, -1, 2, 0, 0, 0],[0, -1, 0, 2, 0, 0],[0, 0, 0, 0, 6, 3],[0, 0, 0, 0, 3, 6]]))
+  @test_throws ArgumentError is_primary_with_prime(dual(L))
+  bool, p = @inferred is_primary_with_prime(L)
+  @test !bool && p == -1
+
+  for i in [6,7,8]
+    L = root_lattice(:E, i)
+    @test is_elementary(L, 9-i)
+    @test i != 8 || is_unimodular(L)
+  end
+
+  for i in [1,2,4,6,10,12,16,18]
+    A = root_lattice(:A, i)
+    bool, p = @inferred is_elementary_with_prime(A)
+    @test bool
+    @test p == i+1
+  end
+  L = orthogonal_sum(hyperbolic_plane_lattice(), root_lattice(:D, 7))[1]
+  @test is_primary(L, 2) && !is_elementary(L, 2)
+  @test is_unimodular(hyperbolic_plane_lattice())
 end
 
+@testset "isometry testing" begin
+  u = ZZ[-69 -46 -58 17; -81 -54 -68 20; -54 -36 -45 13; -241 -161 -203 60]
+  @test abs(det(u))==1
+  L = Zlattice(gram=ZZ[0 2 0 0; 2 0 0 0; 0 0 2 1; 0 0 1 2])
+  M = Zlattice(gram=u*gram_matrix(L)*transpose(u))
+  @test Hecke.is_isometric(L, M)
+  f, r = Hecke._is_isometric_indef_approx(L, M);
+  G = genus(L)
+  @test all(valuation(r,p)==0 for p in bad_primes(G))
+  @test is_automorphous(G, r)
+
+  # Example from Conway Sloane Chapter 15 p.393
+  L1 = Zlattice(gram=ZZ[2 1 0; 1 2 0; 0 0 18])
+  L2 = Zlattice(gram=ZZ[6 3 0; 3 6 0; 0 0 2])
+  @test genus(L1)==genus(L2)
+  @test !Hecke.is_isometric(L1, L2)
+end

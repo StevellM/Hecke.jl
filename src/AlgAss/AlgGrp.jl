@@ -6,6 +6,8 @@ export group_algebra, galois_module, group
 #
 ################################################################################
 
+denominator_of_multiplication_table(A::AlgGrp{fmpq}) = one(ZZ)
+
 base_ring(A::AlgGrp{T}) where {T} = A.base_ring::parent_type(T)
 
 Generic.dim(A::AlgGrp) = size(multiplication_table(A, copy = false), 1)
@@ -827,6 +829,10 @@ function _compute_matrix_algebras_from_reps(A, res)
 end
 
 function _assert_has_refined_wedderburn_decomposition(A::AbsAlgAss)
+  return false
+end
+
+function _assert_has_refined_wedderburn_decomposition(A::AlgGrp{<:Any, GrpGen, <: Any})
   get_attribute!(A, :refined_wedderburn) do
     dec = decompose(A)
     _compute_matrix_algebras_from_reps(A, dec)

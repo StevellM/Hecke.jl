@@ -75,7 +75,6 @@ function cyclotomic_extension(k::AnticNumberField, n::Int; cached::Bool = true, 
       end
     end
   end
-  @assert n > 1
 
   kt, t = PolynomialRing(k, "t", cached = false)
   c = CyclotomicExt()
@@ -85,14 +84,18 @@ function cyclotomic_extension(k::AnticNumberField, n::Int; cached::Bool = true, 
 
   if n <= 2
     #Easy, just return the field
-    Kr = number_field(t+1, cached = false, check = false)[1]
+    if n == 2
+      Kr = number_field(t+1, cached = false, check = false)[1]
+    else
+      Kr = number_field(t-1, cached = false, check = false)[1]
+    end
     if compute_maximal_order
       Ok = maximal_order(k)
       if compute_LLL_basis
         lll(Ok)
       end
     end
-    abs2rel = hom(k, Kr, Kr(gen(k)), inverse = (gen(k), k(-1)))
+    abs2rel = hom(k, Kr, Kr(gen(k)), inverse = (gen(k), k(n==2 ? -1 : 1)))
     small2abs = id_hom(k)
     c.Kr = Kr
     c.Ka = k
@@ -259,6 +262,71 @@ function cyclotomic_extension(k::AnticNumberField, n::Int; cached::Bool = true, 
 
 end
 
+@doc Markdown.doc"""
+    cyclotomic_extension(k::ClassField, n::Int) -> ClassField
+
+Computes $k(\zeta_n)$, as a class field, as an extension of the same base field.
+"""
+function cyclotomic_extension(k::ClassField, n::Int; cached::Bool = true)
+  return k*cyclotomic_extension(ClassField, base_ring(k), n)
+end
+
+function cyclotomic_extension(::Type{ClassField}, zk::NfOrd, n::Int; cached::Bool = true)
+  c = cyclotomic_field(ClassField, n)
+  k = nf(zk)
+  r = ray_class_field(n*zk, real_places(k), n_quo = degree(c))
+  h = norm_group_map(r, c, x->ideal(base_ring(c), norm(x)))
+  return fixed_field(r, kernel(h)[1])
+end
+
+@doc Markdown.doc"""
+    cyclotomic_extension(ClassField, k::AnticNumberField, n::Int) -> ClassField
+
+Computes $k(\zeta_n)$, as a class field, as an extension of the same base field.
+"""
+function cyclotomic_extension(::Type{ClassField}, k::AnticNumberField, n::Int; cached::Bool = true)
+  return cyclotomic_extension(ClassField, maximal_order(k), n)
+end
+
+@doc Markdown.doc"""
+    fixed_field(A::ClassField, U::GrpAbFinGen)
+
+For a subgroup $U$ of the norm group of $A$, return the class field fixed
+by $U$, ie. norm group the quotient by $U$.
+"""
+function fixed_field(A::ClassField, s::GrpAbFinGen)
+  mq = A.quotientmap
+  q, mmq = quo(codomain(mq), s)
+  return ray_class_field(A.rayclassgroupmap, mq*mmq)
+end
+
+function compositum(k::AnticNumberField, A::ClassField)
+  c, mk, mA = compositum(k, base_field(A))
+  return extend_base_field(A, mA)
+end
+
+function compositum(k::CyclotomicExt, A::ClassField)
+  @assert k.k == base_field(A)
+  mA = k.mp[2]
+  return extend_base_field(A, mA)
+end
+
+function extend_base_field(A::ClassField, mA::Map)
+  @assert base_field(A) == domain(mA)
+  K = codomain(mA)
+  ZK = maximal_order(K)
+  c, ci = conductor(A)
+  C = induce_image(mA, c)
+  if length(ci) > 0
+    Ci = real_places(K) #TODO: don't need all....
+  else
+    Ci = InfPlc[]
+  end
+  R = ray_class_field(C, Ci, n_quo = exponent(A))
+  h = norm_group_map(R, A, x->norm(mA, x))
+  return fixed_field(R, kernel(h)[1])
+end
+
 function _isprobably_primitive(x::NfAbsOrdElem)
   S = parent(x)
   OS = maximal_order(S)
@@ -409,7 +477,7 @@ end
 Computes the automorphisms of the absolute field defined by the cyclotomic extension, i.e. of `absolute_simple_field(C).
 It assumes that the base field is normal. `gens` must be a set of generators for the automorphism group of the base field of $C$.
 """
-function automorphism_list(C::CyclotomicExt; gens::Vector{NfToNfMor} = small_generating_set(automorphisms(base_field(C))), copy::Bool = true)
+function automorphism_list(C::CyclotomicExt; gens::Vector{NfToNfMor} = small_generating_set(automorphism_list(base_field(C))), copy::Bool = true)
 
   if degree(absolute_simple_field(C)) == degree(base_field(C)) || is_automorphisms_known(C.Ka)
     return automorphism_list(C.Ka, copy = copy)
@@ -457,7 +525,7 @@ end
 ################################################################################
 
 function show_cyclo(io::IO, C::ClassField)
-  f = get_attribute(C, :cyclo)::Int
+  f = get_attribute(C, :cyclo)# ::Int #can be fmpz/ is fmpz
   print(io, "Cyclotomic field mod $f as a class field")
 end
 

@@ -157,4 +157,24 @@
       @test reproducible(m)
     end
   end
+
+  # issue 859
+  Qx, x = PolynomialRing(FlintQQ, "x");
+  K, a = NumberField(x^2 + 1, "a", cached = false);
+  M = matrix(K, 1, 3, [5*a, 3*a, 0])
+  pm = pseudo_hnf(pseudo_matrix(M), :lowerleft)
+  @test Hecke._spans_subset_of_pseudohnf(pm, pm, :lowerleft)
+  M = matrix(K, 1, 3, [0, 0, 3*a])
+  pm = pseudo_hnf(pseudo_matrix(M), :lowerleft)
+  @test Hecke._spans_subset_of_pseudohnf(pm, pm, :upperright)
+
+  Qx, x = PolynomialRing(FlintQQ, "x")
+  f = x - 1
+  K, a = NumberField(f, "a", cached = false)
+  Kt, t = PolynomialRing(K, "t")
+  g = t^2 + 1
+  E, b = NumberField(g, "b", cached = false)
+  gens = Vector{Hecke.NfRelElem{nf_elem}}[map(E, [-6*b + 7, 37//2*b + 21//2, -3//2*b + 5//2]), map(E, [b + 2, 1, 0])]
+  pm = pseudo_hnf(pseudo_matrix(matrix(gens)), :lowerleft)
+  @test Hecke._spans_subset_of_pseudohnf(pm, pm, :lowerleft)
 end

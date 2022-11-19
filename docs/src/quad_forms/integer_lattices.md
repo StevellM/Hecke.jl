@@ -69,6 +69,11 @@ scale(L::ZLat)
 norm(L::ZLat)
 iseven(L::ZLat)
 is_integral(L::ZLat)
+
+is_primary_with_prime(L::ZLat)
+is_primary(L::ZLat, p::Union{Integer, fmpz})
+is_elementary_with_prime(L::ZLat)
+is_elementary(L::ZLat, p::Union{Integer, fmpz})
 ```
 
 ### The Genus
@@ -159,8 +164,9 @@ lll(L::ZLat; same_ambient::Bool = true)
 ```
 ### Short Vectors
 ```@docs
-short_vectors(L::ZLat, ub)
-shortest_vectors(L::ZLat)
+short_vectors
+shortest_vectors
+short_vectors_iterator
 minimum(L::ZLat)
 kissing_number(L::ZLat)
 ```

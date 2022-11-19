@@ -42,6 +42,8 @@ value_module(T::TorQuadMod)
 value_module_quadratic_form(T::TorQuadMod)
 gram_matrix_bilinear(T::TorQuadMod)
 gram_matrix_quadratic(T::TorQuadMod)
+modulus_bilinear_form(T::TorQuadMod)
+modulus_quadratic_form(T::TorQuadMod)
 ```
 
 ### Elements
@@ -57,9 +59,23 @@ lift(a::TorQuadModElem)
 representative(::TorQuadModElem)
 ```
 
-### orthogonal submodules
+### Orthogonal submodules
 ```@docs
 orthogonal_submodule(T::TorQuadMod, S::TorQuadMod)
+```
+
+### Isometry
+```@docs
+is_isometric_with_isometry(T::TorQuadMod, U::TorQuadMod)
+is_anti_isometric_with_anti_isometry(T::TorQuadMod, U::TorQuadMod)
+```
+
+### Primary and elementary modules
+```docs
+is_primary_with_prime(T::TorQuadMod)
+is_primary(T::TorQuadMod, p::Union{Integer, fmpz})
+is_elementary_with_prime(T::TorQuadMod)
+is_elementary(T::TorQuadMod, p::Union{Integer, fmpz})
 ```
 
 ## Discriminant Groups
@@ -87,6 +103,7 @@ rescale(T::TorQuadMod, k::RingElement)
 
 ```@docs
 is_degenerate(T::TorQuadMod)
+is_semi_regular(T::TorQuadMod)
 radical_bilinear(T::TorQuadMod)
 radical_quadratic(T::TorQuadMod)
 

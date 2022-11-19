@@ -103,6 +103,75 @@
 
   cyclotomic_extension(k, 6)
   Hecke._cyclotomic_extension_non_simple(k, 6)
+
+  r = ray_class_field(5*maximal_order(quadratic_field(3)[1]))
+  absaut = absolute_automorphism_group(r)
+  @test length(closure(absaut, *)) == 8 # normal
+
+  r = ray_class_field(27*maximal_order(quadratic_field(42)[1]))
+  @test absolute_automorphism_group(r) isa Vector
+  # Too large to check
+
+  K = quadratic_field(3)[1]
+  OK = maximal_order(K)
+  rcf = ray_class_field(5*OK, real_places(K))
+  absaut = absolute_automorphism_group(rcf) # normal
+  @test length(closure(absaut, *)) == 32
+
+  r = hilbert_class_field(quadratic_field(13*17*37)[1])
+  @test isone(discriminant(r))
+  absaut = absolute_automorphism_group(r) # normal
+  @test length(closure(absaut, *)) == 8
+  a, ma = automorphism_group(r)
+  @assert order(a) == 4
+  f = ma(a[1]) * ma(a[2])
+  @assert preimage(ma, f) == a([1,1])
+
+  f = frobenius_map(r)
+  lp = prime_decomposition(base_ring(r), 19)
+  @assert preimage(ma, f(lp[1][1])) == a[2] #true for both actually.
+  Hecke.find_frob(r.cyc[1])
+  norm_group(r)
+
+  s = ray_class_field(7*base_ring(r))
+  h = hom(base_field(r), base_field(r), gen(base_field(r)))
+  q = Hecke.extend_hom(r, s, h)
+  @test q == "not finished"
+  @test Hecke.maximal_p_subfield(s, 2) == r
+
+  @test is_abelian(number_field(r))
+  @test is_abelian(base_field(r))
+  @test length(subfields(r)) == 5
+  @test length(subfields(r; degree = 2)) == 3
+  @test is_central(r)
+
+  K = quadratic_field(5)[1]
+  OK = maximal_order(K)
+  rcf = ray_class_field(9*OK, real_places(K))
+  @test length(closure(absolute_automorphism_group(rcf), *)) == 12
+
+  rcf = ray_class_field(21*OK, real_places(K))
+  c = conductor(rcf)
+  @test c[1] == 21*OK
+  @test length(c[2]) == 2 # the order is wrong
+
+  k = quadratic_field(8)[1]
+  e = equation_order(k)
+  @test degree(Hecke.ring_class_field(e)) == 1
+  k = quadratic_field(8*9)[1]
+  e = equation_order(k)
+  @test degree(Hecke.ring_class_field(e)) == 2
+end
+
+@testset "Jon Yard" begin
+  for (D, m) = [(3, 32), (5, 32), (13, 32), (3, 27)]
+    K = quadratic_field(D)[1]
+    OK = maximal_order(K)
+    rcf = ray_class_field(m*OK,real_places(K))
+    F = number_field(rcf)
+#    @show length(absolute_automorphism_group(rcf))
+    @test length(absolute_automorphism_group(rcf)) > 1
+  end
 end
 
 @testset "Some abelian extensions" begin
@@ -150,4 +219,23 @@ end
   @test C == C*C
 end
 
+@testset "Frobenius at infinity" begin
+  K, = quadratic_field(21)
+  OK = maximal_order(K)
+  C = ray_class_field(6*OK, real_places(K)[1:1])
+  sigma = complex_conjugation(C, real_places(K)[1])
+  L = number_field(C)
+  e = real_embeddings(K)[1]
+  @assert overlaps(e(gen(K)), evaluate(gen(K), real_places(K)[1]))
+  @test all(ee -> sigma * ee == conj(ee), extend(e, hom(K, L)))
 
+  k, = quadratic_field(23)
+  @test_throws ArgumentError complex_conjugation(C, real_places(k)[1])
+  C = ray_class_field(6*OK, real_places(K)[1:1])
+  @test_throws ArgumentError complex_conjugation(C, real_places(K)[2])
+
+  K = quadratic_field(15)[1]
+  OK = maximal_order(K)
+  rcf = ray_class_field(9*OK,real_places(K))
+  @test domain(complex_conjugation(rcf,real_places(K)[1])) == number_field(rcf)
+end
