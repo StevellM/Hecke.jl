@@ -410,8 +410,6 @@ function random_neighbour(W::ZLat, p, path, so_far, _mult = 1; call = stdcallbac
     LLZ = Hecke._to_ZLat(LL, K=QQ)
     LLZ = Hecke._lll_gram(LLZ)
     @hassert :GenRep 1 is_locally_isometric(LL, L, p)
-    s = Hecke._aut_order_in_magma(LLZ)
-    LLZ.automorphism_group_order = s
     if !(call isa Bool)
       keep, cont = call(result, LLZ)
     end
@@ -420,10 +418,10 @@ function random_neighbour(W::ZLat, p, path, so_far, _mult = 1; call = stdcallbac
       open(path, "a") do f
         nb += 1
         str = "L$(nb) = Zlattice(gram= "*Hecke._mat_in_str(gram_matrix(LLZ))*");\n"
-        str*= "L$(nb).automorphism_group_order = $s;\n\n"
+        str*= "L$(nb).automorphism_group_order = $(_aut_order_in_magma(LLZ));\n\n"
         Base.write(f,str)
       end
-      _mass = _mass - 1//s
+      _mass = _mass - 1//(_aut_order_in_magma(LLZ))
       push!(result, LLZ)
       if _mass == zero(fmpq)
         @vprint :GenRep 1 "Neighbours research completed\n"
