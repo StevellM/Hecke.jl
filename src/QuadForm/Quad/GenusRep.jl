@@ -1,4 +1,3 @@
-import MagmaCall
 
 # Genus representatives for quadratic lattices,
 #
