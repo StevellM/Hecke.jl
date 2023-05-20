@@ -80,7 +80,7 @@ Computes representatives for the isometry classes in the genus of $L$.
 At most `max` representatives are returned. The use of automorphims can be
 disabled by
 """
-function genus_representatives(L::QuadLat; max = inf, use_auto = true, use_mass = true, mass_genus = -one(FlintQQ))
+function genus_representatives(L::QuadLat; max = inf, use_auto = true, use_mass = true)
   # Otherwise the isomorphism to the class group fails, cf. §102 in O'Meara.
   @req max >= 1 "Must find at least one representative"
 
@@ -109,7 +109,9 @@ function genus_representatives(L::QuadLat; max = inf, use_auto = true, use_mass 
   spinor_genera = spinor_genera_in_genus(L, typeof(p)[p])
 
   if use_mass
-    _mass = mass_genus
+    @vprint :GenRep 1 "... $(_mass)\n"
+    _mass = mass(L)
+    @vprint :GenRep 1 "... $(_mass)\n"
   else
     _mass = -one(FlintQQ)
   end
@@ -214,74 +216,18 @@ function iterated_neighbours2(L::QuadLat, p; mass = -one(FlintQQ))
   return result
 end
 
-
-function _mat_in_str(M::fmpq_mat)
-  n,m = size(M)
-  str = "matrix(QQ, $n, $m, ["
-  for i=1:n
-    for j= 1:m
-      if M[i,j] == zero(fmpq)
-        str *= " 0"
-      elseif denominator(M[i,j]) == 1
-        str *= " $(numerator(M[i,j]))"
-      else
-        str *= " $(numerator(M[i,j]))//$(denominator(M[i,j]))"
-      end
-      if j ==m && i != n
-        str *= ";"
-      end
-    end
-  end
-  str*= " ])"
-  return str
-end
-
-function _lll_gram(L::ZLat)
-  @req is_definite(L) "L must be definite"
-  nd = is_negative_definite(L)
-  if nd
-    L = rescale(L, -1)
-  end
-  M = gram_matrix(L)
-  Mred = lll_gram(change_base_ring(ZZ, M))
-  if nd
-    Mred = -Mred
-  end
-  Lred = Zlattice(gram = Mred)
-  return Lred
-end
-
-function _aut_order_in_magma(L::ZLat)
-  if isdefined(L, :automorphism_group_order)
-    return L.automorphism_group_order
-  end
-  @req is_definite(L) "L must be definite"
-  if is_negative_definite(L)
-    L = rescale(L, -1)
-  end
-  n = rank(L)
-  m = degree(L)
-  M = gram_matrix(L)
-  gram = "[" * split(string([M[i, j] for i in 1:nrows(M) for j in 1:ncols(M)]), '[')[2]
-  gram = replace(gram, "//" => "/")
-  s = MagmaCall.magconvert(Int, MagmaCall.maglength(MagmaCall.magf.AutomorphismGroup(MagmaCall.magf.LatticeWithGram(MagmaCall.magf.Matrix(MagmaCall.magf.Rationals(), n, m, MagmaCall.mageval(gram))))))
-  L.automorphism_group_order = s
-  return fmpz(s)
-end
-
 function _my_rand(s, k)
-  L = unique(rand(s,k))
+  L = unique(rand(s, k))
   while length(L) < k
-    unique!(append!(L, rand(s,k-length(L))))
+    unique!(append!(L, rand(s, k-length(L))))
   end
   return L
 end
 
-function random_neighbour(W::ZLat, p, path, so_far, _mult = 1; call = stdcallback, missing_mass = Ref{fmpq}(zero(fmpq)))
+function random_neighbour(W::Lat, p; call = stdcallback, missing_mass = Ref{fmpq}(zero(fmpq)))
   L = Hecke._to_number_field_lattice(W)
   R = base_ring(L)
   F = nf(R)
-  nb = so_far
   @req R == order(p) "Incompatible arguments"
   @req is_prime(p) "Ideal must be prime"
   ok, rescale = is_modular(L, p)
@@ -306,7 +252,7 @@ function random_neighbour(W::ZLat, p, path, so_far, _mult = 1; call = stdcallbac
   end
   pform = map_entries(hext, form)
 
-  _mass = missing_mass[]
+  #_mass = missing_mass[]
 
   @vprint :GenRep 2 "Enumerating lines over $k of length $n\n"
   LO = enumerate_lines(k, n)
@@ -323,14 +269,14 @@ function random_neighbour(W::ZLat, p, path, so_far, _mult = 1; call = stdcallbac
   keep = true
   cont = true
   found = false
-  attempts = 0
+  #attempts = 0
   _val = _my_rand(1:length(LO), Int(floor(_mult*40*log(length(LO)))))
   for i in _val
     w = LO[i]
-    attempts += 1
-    if attempts in 0:500:length(_val)
-      println(attempts)
-    end
+    #attempts += 1
+    #if attempts in 0:500:length(_val)
+    #  println(attempts)
+    #end
     dotww = _dotk(w, w)
     if dotww != 0
       continue
@@ -408,25 +354,19 @@ function random_neighbour(W::ZLat, p, path, so_far, _mult = 1; call = stdcallbac
     V = VV * B
     LL = lattice(ambient_space(L), _sum_modules(pMmat, pseudo_matrix(V)))
     LLZ = Hecke._to_ZLat(LL, K=QQ)
-    LLZ = Hecke._lll_gram(LLZ)
+    #LLZ = lll(LLZ)
     @hassert :GenRep 1 is_locally_isometric(LL, L, p)
     if !(call isa Bool)
       keep, cont = call(result, LLZ)
     end
     if keep
       @vprint :GenRep 1 "Found a neighbour after $(attempts) random searche(s)\n"
-      open(path, "a") do f
-        nb += 1
-        str = "L$(nb) = Zlattice(gram= "*Hecke._mat_in_str(gram_matrix(LLZ))*");\n"
-        str*= "L$(nb).automorphism_group_order = $(_aut_order_in_magma(LLZ));\n\n"
-        Base.write(f,str)
-      end
-      _mass = _mass - 1//(_aut_order_in_magma(LLZ))
+      #_mass = _mass - 1//(automorphism_group_order(LLZ))
       push!(result, LLZ)
-      if _mass == zero(fmpq)
-        @vprint :GenRep 1 "Neighbours research completed\n"
-        return result
-      end
+      #if _mass == zero(fmpq)
+      #  @vprint :GenRep 1 "Neighbours research completed\n"
+      #  return result
+      #end
     end
     GC.gc()
     GC.gc()

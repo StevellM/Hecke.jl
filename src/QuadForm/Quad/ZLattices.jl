@@ -1067,18 +1067,6 @@ function genus_representatives(L::ZZLat)
   return [rescale(L, 1//s) for L in res]
 end
 
-
-function genus_rep(L::ZLat)
-  LL = _to_number_field_lattice(L)
-  K = base_field(L)
-  G = genus_rep(LL, mass(genus(L)))
-  res = ZLat[]
-  for N in G
-    push!(res, _to_ZLat(N, K=K))
-  end
-  return res
-end
-
 ################################################################################
 #
 #  Maximal integral lattice
