@@ -43,14 +43,14 @@ The *discriminant* $\text{disc}(V, \Phi)$ of $(V, \Phi)$ is defined to be
 $(-1)^{(m(m-1)/2)}\text{det}(V, \Phi)$, where $m$ is the rank of $(V, \Phi)$.
 
 ```@docs
-rank(::AbsSpace)
-dim(::AbsSpace)
-gram_matrix(::AbsSpace)
-involution(::AbsSpace)
-base_ring(::AbsSpace)
-fixed_field(::AbsSpace)
-det(::AbsSpace)
-discriminant(::AbsSpace)
+rank(::AbstractSpace)
+dim(::AbstractSpace)
+gram_matrix(::AbstractSpace)
+involution(::AbstractSpace)
+base_ring(::AbstractSpace)
+fixed_field(::AbstractSpace)
+det(::AbstractSpace)
+discriminant(::AbstractSpace)
 ```
 
 ### Examples
@@ -82,12 +82,12 @@ positive or all totally negative. In the former case, $V$ is said to be
 In all the other cases, we say that $V$ is *indefinite*.
 
 ```@docs
-is_regular(::AbsSpace)
-is_quadratic(::AbsSpace)
-ishermitian(::AbsSpace)
-is_positive_definite(::AbsSpace)
-is_negative_definite(::AbsSpace)
-is_definite(::AbsSpace)
+is_regular(::AbstractSpace)
+is_quadratic(::AbstractSpace)
+ishermitian(::AbstractSpace)
+is_positive_definite(::AbstractSpace)
+is_negative_definite(::AbstractSpace)
+is_definite(::AbstractSpace)
 ```
 
 Note that the `ishermitian` function tests whether the space is non-quadratic.
@@ -110,12 +110,12 @@ is_definite(Q), is_positive_definite(H)
 ## Inner products and diagonalization
 
 ```@docs
-gram_matrix(::AbsSpace{T}, ::MatElem{S}) where {S, T}
-gram_matrix(::AbsSpace{T}, ::Vector{Vector{U}}) where {T, U}
-inner_product(::AbsSpace, ::Vector, ::Vector)
-orthogonal_basis(::AbsSpace)
-diagonal(::AbsSpace)
-restrict_scalars(::AbsSpace, ::FlintRationalField, ::FieldElem)
+gram_matrix(::AbstractSpace{T}, ::MatElem{S}) where {S, T}
+gram_matrix(::AbstractSpace{T}, ::Vector{Vector{U}}) where {T, U}
+inner_product(::AbstractSpace, ::Vector, ::Vector)
+orthogonal_basis(::AbstractSpace)
+diagonal(::AbstractSpace)
+restrict_scalars(::AbstractSpace, ::QQField, ::FieldElem)
 ```
 
 ### Examples
@@ -148,8 +148,8 @@ called an *embedding*.
 ```@docs
 hasse_invariant(::QuadSpace, p)
 witt_invariant(::QuadSpace, p)
-is_isometric(::AbsSpace, ::AbsSpace)
-is_isometric(::AbsSpace, ::AbsSpace, p)
+is_isometric(::AbstractSpace, ::AbstractSpace)
+is_isometric(::AbstractSpace, ::AbstractSpace, p)
 invariants(::QuadSpace)
 ```
 
@@ -185,8 +185,8 @@ quadratic and hermitian cases, completions are taken at finite places of the fix
 field $K$.
 
 ```@docs
-is_locally_represented_by(::AbsSpace, ::AbsSpace, p)
-is_represented_by(::AbsSpace, ::AbsSpace)
+is_locally_represented_by(::AbstractSpace, ::AbstractSpace, p)
+is_represented_by(::AbstractSpace, ::AbstractSpace)
 ```
 
 ### Examples
@@ -211,11 +211,35 @@ is_represented_by(H2, H)
 ```
 ---
 
+## Categorical constructions
+One can construct direct sums of spaces of the same kind. Since those are also
+direct products, they are called biproducts in this context. Depending on the user
+usage, one of the following three methods can be called to obtain the direct
+sum of a finite collection of spaces. Note that the corresponding copies
+of the original spaces in the direct sum are pairwise orthogonal.
+
+```@docs
+direct_sum(x::Vector{AbstractSpace})
+direct_product(x::Vector{AbstractSpace})
+biproduct(x::Vector{AbstractSpace})
+```
+
+### Example
+
+```@repl 2
+using Hecke # hide
+E, b = cyclotomix_field_as_cm_extensions(7);
+H = hermitian_space(E, 3);
+H2 = hermitian_space(E, E[-1 0 0; 0 1 0; 0 0 -1]);
+H3, inj, proj = biproduct(H, H2)
+isone(compose(inj[1], proj[1]))
+iszero(compose(inj[1], proj[2]))
+```
 ## Orthogonality operations
 
 ```@docs
-orthogonal_complement(::AbsSpace, ::MatElem)
-orthogonal_sum(::AbsSpace, ::AbsSpace)
+orthogonal_complement(::AbstractSpace, ::MatElem)
+orthogonal_projection(::AbstractSpace, ::MatElem)
 ```
 
 ### Example
@@ -224,15 +248,8 @@ orthogonal_sum(::AbsSpace, ::AbsSpace)
 using Hecke # hide
 K, a = CyclotomicRealSubfield(7);
 Kt, t = K["t"];
-E, b = number_field(t^2-a*t+1, "b");
 Q = quadratic_space(K, K[0 1; 1 0]);
-H = hermitian_space(E, 3);
-H2 = hermitian_space(E, E[-1 0 0; 0 1 0; 0 0 -1]);
 orthogonal_complement(Q, matrix(K, 1, 2, [1 0]))
-H3, map1, map2 = orthogonal_sum(H, H2);
-H3
-map1
-map2
 ```
 ---
 
@@ -244,7 +261,7 @@ $\Phi_{\mathfrak p}(x,x) = 0$, where $\Phi_{\mathfrak p}$ is the continuous
 extension of $\Phi$ to $V_{\mathfrak p} \times V_{\mathfrak p}$.
 
 ```@docs
-is_isotropic(::AbsSpace, p)
+is_isotropic(::AbstractSpace, p)
 ```
 ### Example
 

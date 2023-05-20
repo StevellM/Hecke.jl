@@ -5,11 +5,15 @@
 ################################################################################
 
 # This is helpful to construct code for the tests.
-function to_hecke(L::AbsLat; target = "L", skip_field = false)
+function to_hecke(L::AbstractLat; target = "L", skip_field = false)
   return to_hecke(stdout, L, target = target, skip_field = skip_field)
 end
 
-function to_hecke_string(L::AbsLat; target = "L", skip_field = false)
+function to_hecke(G::HermGenus; target = "G")
+  return to_hecke(stdout, G, target=target)
+end
+
+function to_hecke_string(L::AbstractLat; target = "L", skip_field = false)
   b = IOBuffer()
   to_hecke(b, L, target = target, skip_field = skip_field)
   return String(take!(b))
@@ -18,7 +22,7 @@ end
 function to_hecke(io::IO, L::QuadLat; target = "L", skip_field = false)
   K = nf(base_ring(L))
   if !skip_field
-    println(io, "Qx, x = PolynomialRing(FlintQQ, \"x\", cached = false)")
+    println(io, "Qx, x = polynomial_ring(FlintQQ, \"x\", cached = false)")
     f = absolute_minpoly(gen(K))
     pol = string(f)
     pol = replace(pol, string(var(parent(f))) => "x")
@@ -47,17 +51,17 @@ end
 function to_hecke(io::IO, L::HermLat; target = "L", skip_field = false)
   E = nf(base_ring(L))
   K = base_field(E)
-  println(io, "Qx, x = PolynomialRing(FlintQQ, \"x\")")
+  println(io, "Qx, x = polynomial_ring(FlintQQ, \"x\")")
   f = defining_polynomial(K)
   pol = replace(string(f), string(var(parent(f))) => "x")
   println(io, "f = ", pol)
-  println(io, "K, a = NumberField(f, \"a\", cached = false)")
-  println(io, "Kt, t = PolynomialRing(K, \"t\")")
+  println(io, "K, a = number_field(f, \"a\", cached = false)")
+  println(io, "Kt, t = polynomial_ring(K, \"t\")")
   f = defining_polynomial(E)
   pol = replace(string(f), string(var(parent(f))) => "t")
   pol = replace(pol, string(var(K)) => "a")
   println(io, "g = ", pol, "")
-  println(io, "E, b = NumberField(g, \"b\", cached = false)")
+  println(io, "E, b = number_field(g, \"b\", cached = false)")
   F = gram_matrix(ambient_space(L))
   Fst = "[" * split(string([F[i, j] for i in 1:nrows(F) for j in 1:ncols(F)]), '[')[2]
   Fst = replace(Fst, string(var(K)) => "a")
@@ -82,17 +86,56 @@ function to_hecke(io::IO, L::HermLat; target = "L", skip_field = false)
   println(io, target, " = hermitian_lattice(E, gens, gram = D)")
 end
 
+function to_hecke(io::IO, G::HermGenus; target = "G")
+  E = base_field(G)
+  K = base_field(E)
+  println(io, "Qx, x = polynomial_ring(FlintQQ, \"x\")")
+  f = defining_polynomial(K)
+  pol = replace(string(f), string(var(parent(f))) => "x")
+  println(io, "f = ", pol)
+  println(io, "K, a = number_field(f, \"a\", cached = false)")
+  println(io, "Kt, t = polynomial_ring(K, \"t\")")
+  f = defining_polynomial(E)
+  pol = replace(string(f), string(var(parent(f))) => "t")
+  pol = replace(pol, string(var(K)) => "a")
+  println(io, "g = ", pol, "")
+  println(io, "E, b = number_field(g, \"b\", cached = false);")
+  sig = signatures(G)
+  SE = collect(keys(sig))
+  sort!(SE, lt=(p,q) -> isless(real(embedding(p).r), real(embedding(q).r)))
+  println(io, "S = unique([restrict(r, K) for r in filter(!is_real, infinite_places(E)) if is_real(restrict(r, K))]);")
+  println(io, "sort!(S, lt=(p,q) -> isless(real(embedding(p).r), real(embedding(q).r)));")
+  vals = [sig[p] for p in SE]
+  println(io, "vals = Int$(vals);")
+  println(io, "sig = Dict(S[i] => vals[i] for i in 1:$(length(vals)));")
+  println(io, "OK = maximal_order(K);")
+  lgs = G.LGS
+  pp = prime.(lgs)
+  bases = [gens(p) for p in pp]
+  str = "ps = $(typeof(pp[1]))[ideal(OK, v) for v in Vector{$(elem_type(maximal_order(K)))}["
+  for bb in bases
+    bb = replace("$(bb)", string(var(K)) => "a")
+    bb = bb[10:end]
+    str *= "map(OK, "*bb*"), "
+  end
+  str = str[1:end-2]*"]];"
+  println(io, str)
+  println(io, "datas = $([G[p].data for p in pp]);")
+  println(io, "lgs = HermLocalGenus{typeof(E), $(typeof(pp[1]))}[genus(HermLat, E, ps[i], datas[i]) for i in 1:$(length(pp))];")
+  println(io, target, " = HermGenus(E, $(rank(G)), lgs, sig)")
+end
+
 ################################################################################
 #
 #  Conversion to Magma
 #
 ################################################################################
 
-function to_magma(L::AbsLat; target = "L")
+function to_magma(L::AbstractLat; target = "L")
   return to_magma(stdout, L, target = target)
 end
 
-function to_magma_string(L::AbsLat; target = "L")
+function to_magma_string(L::AbstractLat; target = "L")
   b = IOBuffer()
   to_magma(b, L, target = target)
   return String(take!(b))
@@ -101,19 +144,19 @@ end
 function to_magma(io::IO, L::HermLat; target = "L")
   E = nf(base_ring(L))
   K = base_field(E)
-  println(io, "Qx<x> := PolynomialRing(Rationals());")
+  println(io, "Qx<x> := polynomial_ring(Rationals());")
   f = defining_polynomial(K)
   pol = replace(string(f), "//" => "/")
   pol = replace(pol, string(var(parent(f))) => "x")
   println(io, "f := ", pol, ";")
-  println(io, "K<a> := NumberField(f : DoLinearExtension);")
-  println(io, "Kt<t> := PolynomialRing(K);")
+  println(io, "K<a> := number_field(f : DoLinearExtension);")
+  println(io, "Kt<t> := polynomial_ring(K);")
   f = defining_polynomial(E)
   pol = replace(string(f), string(var(parent(f))) => "t")
   pol = replace(pol, string(var(K)) => "a")
   pol = replace(pol, "//" => "/")
   println(io, "g := ", pol, ";")
-  println(io, "E<b> := NumberField(g : DoLinearExtension);")
+  println(io, "E<b> := number_field(g : DoLinearExtension);")
   F = gram_matrix(ambient_space(L))
   Fst = "[" * split(string([F[i, j] for i in 1:nrows(F) for j in 1:ncols(F)]), '[')[2]
   println(io, "F := Matrix(E, ", nrows(F), ", ", ncols(F), ", ", Fst, ");")
@@ -142,12 +185,12 @@ end
 
 function to_magma(io::IO, L::QuadLat; target = "L")
   K = nf(base_ring(L))
-  println(io, "Qx<x> := PolynomialRing(Rationals());")
+  println(io, "Qx<x> := polynomial_ring(Rationals());")
   f = absolute_minpoly(gen(K))
   pol = replace(string(f), "//" => "/")
   pol = replace(pol, string(var(parent(f))) => "x")
   println(io, "f := ", pol, ";")
-  println(io, "K<a> := NumberField(f : DoLinearExtension);")
+  println(io, "K<a> := number_field(f : DoLinearExtension);")
   F = gram_matrix(ambient_space(L))
   Fst = "[" * split(string([F[i, j] for i in 1:nrows(F) for j in 1:ncols(F)]), '[')[2]
   Fst = replace(Fst, string(var(K)) => "a")
@@ -185,17 +228,17 @@ end
 #
 ################################################################################
 
-function to_hecke(io::IO, L::ZLat; target = "L", skip_field = false)
+function to_hecke(io::IO, L::ZZLat; target = "L", skip_field = false)
   B = basis_matrix(L)
   G = gram_matrix(ambient_space(L))
   Bst = "[" * split(string([B[i, j] for i in 1:nrows(B) for j in 1:ncols(B)]), '[')[2]
   Gst = "[" * split(string([G[i, j] for i in 1:nrows(G) for j in 1:ncols(G)]), '[')[2]
   println(io, "B = matrix(FlintQQ, ", nrows(B), ", ", ncols(B), " ,", Bst, ");")
   println(io, "G = matrix(FlintQQ, ", nrows(G), ", ", ncols(G), " ,", Gst, ");")
-  println(io, target, " = ", "Zlattice(B, gram = G);")
+  println(io, target, " = ", "integer_lattice(B, gram = G);")
 end
 
-function to_magma(io::IO, L::ZLat; target = "L")
+function to_magma(io::IO, L::ZZLat; target = "L")
   B = basis_matrix(L)
   G = gram_matrix(ambient_space(L))
   Bst = "[" * split(string([B[i, j] for i in 1:nrows(B) for j in 1:ncols(B)]), '[')[2]
@@ -207,17 +250,17 @@ function to_magma(io::IO, L::ZLat; target = "L")
   println(io, target, " := ", "LatticeWithBasis(B, G);")
 end
 
-function to_sage(L::AbsLat; target = "L")
+function to_sage(L::AbstractLat; target = "L")
   return to_sage(stdout, L, target = target)
 end
 
-function to_sage_string(L::AbsLat; target = "L")
+function to_sage_string(L::AbstractLat; target = "L")
   b = IOBuffer()
   to_sage(b, L, target = target)
   return String(take!(b))
 end
 
-function to_sage(io::IO, L::ZLat; target = "L")
+function to_sage(io::IO, L::ZZLat; target = "L")
   B = basis_matrix(L)
   G = gram_matrix(ambient_space(L))
   Bst = "[" * split(string([B[i, j] for i in 1:nrows(B) for j in 1:ncols(B)]), '[')[2]

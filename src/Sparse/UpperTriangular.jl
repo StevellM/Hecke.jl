@@ -4,13 +4,13 @@
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    diagonal_form(A::SMat{fmpz}) -> SMat{fmpz}
+@doc raw"""
+    diagonal_form(A::SMat{ZZRingElem}) -> SMat{ZZRingElem}
 
 A matrix $D$ that is diagonal and obtained via unimodular row and column operations.
 Like a snf without the divisibility condition.
 """
-function diagonal_form(A::SMat{fmpz})
+function diagonal_form(A::SMat{ZZRingElem})
   s = 0
   while !is_diagonal(A)
     s += 1
@@ -23,8 +23,8 @@ function diagonal_form(A::SMat{fmpz})
   end
 end
 
-@doc Markdown.doc"""
-    diagonal(A::SMat) -> fmpz[]
+@doc raw"""
+    diagonal(A::SMat) -> ZZRingElem[]
 
 The diagonal elements of $A$ in an array.
 """
@@ -32,7 +32,7 @@ function diagonal(A::SMat)
   return [A[i,i] for i=1:min(nrows(A), ncols(A))]
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     is_diagonal(A::SMat) -> Bool
 
 True iff only the i-th entry in the i-th row is non-zero.
@@ -54,12 +54,12 @@ function is_diagonal(A::SMat)
   return all(i -> length(A.rows[i].pos) == 0, i:nrows(A))
 end
 
-@doc Markdown.doc"""
-    snf(A::SMat{fmpz})
+@doc raw"""
+    snf(A::SMat{ZZRingElem})
 
 The Smith normal form (snf) of $A$.
 """
-function snf(A::SMat{fmpz})
+function snf(A::SMat{ZZRingElem})
   A = diagonal_form(A)
   e = elementary_divisors(A)
   for i=1:length(e)
@@ -71,17 +71,17 @@ function snf(A::SMat{fmpz})
   return A
 end
 
-@doc Markdown.doc"""
-    elementary_divisors(A::SMat{fmpz}) -> Vector{fmpz}
+@doc raw"""
+    elementary_divisors(A::SMat{ZZRingElem}) -> Vector{ZZRingElem}
 
 The elementary divisors of $A$, i.e. the diagonal elements of the Smith normal
 form of $A$.
 """
-function elementary_divisors(A::SMat{fmpz})
+function elementary_divisors(A::SMat{ZZRingElem})
   A = diagonal_form(A)
   b = [x for x in diagonal(A) if !iszero(x)]
   c = coprime_base(b)
-  e = [fmpz(1) for x = b]
+  e = [ZZRingElem(1) for x = b]
   for p = c
     if isone(p)
       continue
@@ -93,7 +93,7 @@ function elementary_divisors(A::SMat{fmpz})
     end
   end
   for i = length(e):min(nrows(A), ncols(A))
-    push!(e, fmpz(0))
+    push!(e, ZZRingElem(0))
   end
   return e
 end

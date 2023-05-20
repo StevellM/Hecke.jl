@@ -18,7 +18,7 @@ Elements can also be created by specifying the coordinates with respect to the
 basis of the number field:
 
 ```julia
-    (L::NumberField)(c::Vector{NumFieldElem}) -> NumFieldElem
+    (L::number_field)(c::Vector{NumFieldElem}) -> NumFieldElem
 ```
 
 Given a number field $L/K$ of degree $d$ and a vector `c` length $d$, this constructs
@@ -27,14 +27,13 @@ the element `a` with `coordinates(a) == c`.
 ```jldoctest
 julia> Qx, x = QQ["x"];
 
-julia> K, a = NumberField(x^2 - 2, "a");
+julia> K, a = number_field(x^2 - 2, "a");
 
 julia> K([1, 2])
 2*a + 1
 
 julia> L, b = radical_extension(3, a, "b")
-(Relative number field with defining polynomial x^3 - a
- over Number field over Rational Field with defining polynomial x^2 - 2, b)
+(Relative number field of degree 3 over number field, b)
 
 julia> L([a, 1, 1//2])
 1//2*b^2 + b + a
@@ -65,10 +64,8 @@ conjugates(::NumFieldElem)
 conjugates_log(::nf_elem, ::Int)
 conjugates_real(::nf_elem)
 conjugates_complex(::nf_elem)
-evaluate(::nf_elem, ::InfPlc)
 conjugates_arb_log_normalise(::nf_elem)
 minkowski_map(::nf_elem)
-is_negative(::nf_elem, ::InfPlc)
 ```
 
 ### Predicates
@@ -77,8 +74,8 @@ is_negative(::nf_elem, ::InfPlc)
 is_integral(::NumFieldElem)
 is_torsion_unit(::nf_elem)
 is_local_norm(::NumField, ::NumFieldElem, ::Any)
-is_norm_divisible(::nf_elem, ::fmpz)
-is_norm(::AnticNumberField, ::fmpz)
+is_norm_divisible(::nf_elem, ::ZZRingElem)
+is_norm(::AnticNumberField, ::ZZRingElem)
 ```
 
 ### Invariants

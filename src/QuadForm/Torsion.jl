@@ -1,84 +1,8 @@
 export discriminant_group, torsion_quadratic_module, normal_form, genus, is_genus,
-       is_degenerate, cover, relations, orthogonal_submodule, brown_invariant, TorQuadMod,
+       is_degenerate, cover, relations, orthogonal_submodule, brown_invariant,
        modulus_bilinear_form, modulus_quadratic_form, is_isometric_with_isometry,
        is_anti_isometric_with_anti_isometry, has_complement, radical_bilinear,
-       radical_quadratic, is_semi_regular
-
-@doc Markdown.doc"""
-    TorQuadMod
-
-# Example:
-```jldoctest
-julia> A = matrix(ZZ, [[2,0,0,-1],[0,2,0,-1],[0,0,2,-1],[-1,-1,-1,2]]);
-
-julia> L = Zlattice(gram = A);
-
-julia> T = Hecke.discriminant_group(L)
-Finite quadratic module over Integer Ring with underlying abelian group
-GrpAb: (Z/2)^2
-Gram matrix of the quadratic form with values in Q/2Z
-[   1   1//2]
-[1//2      1]
-```
-
-We represent torsion quadratic modules as quotients of $\Z$-lattices
-by a full rank sublattice.
-
-We store them as a $\Z$-lattice `M` together with a projection `p : M -> A`
-onto an abelian group `A`. The bilinear structure of `A` is induced via `p`,
-that is `<a, b> = <p^-1(a), p^-1(a)>` with values in $\Q/n\Z$, where $n$
-is the modulus and depends on the kernel of `p`.
-
-Elements of A are basically just elements of the underlying abelian group.
-To move between `M` and `A`, we use the `lift` function `lift : M -> A`
-and coercion `A(m)`.
-
-# Examples
-```jldoctest
-julia> R = rescale(root_lattice(:D,4),2);
-
-julia> D = discriminant_group(R);
-
-julia> A = abelian_group(D)
-GrpAb: (Z/2)^2 x (Z/4)^2
-
-julia> d = D[1]
-[1, 0, 0, 0]
-
-julia> d == D(A(d))
-true
-
-julia> lift(d)
-4-element Vector{fmpq}:
- 1
- 1
- 3//2
- 1
-```
-
-N.B. Since there are no elements of $\Z$-latties, we think of elements of `M` as
-elements of the ambient vector space. Thus if `v::Vector` is such an element
-then the coordinates with respec to the basis of `M` are given by
-`solve_left(basis_matrix(M), v)`.
-"""
-@attributes mutable struct TorQuadMod
-  ab_grp::GrpAbFinGen             # underlying abelian group
-  cover::ZLat                     # ZLat -> ab_grp, x -> x * proj
-  rels::ZLat
-  proj::fmpz_mat                  # is a projection and respects the forms
-  gens_lift::Vector{Vector{fmpq}}
-  gens_lift_mat::fmpq_mat
-  modulus::fmpq
-  modulus_qf::fmpq
-  value_module::QmodnZ
-  value_module_qf::QmodnZ
-  gram_matrix_bilinear::fmpq_mat
-  gram_matrix_quadratic::fmpq_mat
-  gens
-  is_normal::Bool
-
-  TorQuadMod() = new()
-end
+       radical_quadratic, is_semi_regular, trivial_morphism, abelian_group_homomorphism
 
 ################################################################################
 #
@@ -88,11 +12,11 @@ end
 
 # compute the torsion quadratic module M/N
 
-@doc Markdown.doc"""
-    torsion_quadratic_module(M::ZLat, N::ZLat; gens::Union{Nothing, Vector{<:Vector}} = nothing,
+@doc raw"""
+    torsion_quadratic_module(M::ZZLat, N::ZZLat; gens::Union{Nothing, Vector{<:Vector}} = nothing,
                                                     snf::Bool = true,
-                                                    modulus::fmpq = fmpq(0),
-                                                    check::Bool = true)
+                                                    modulus::QQFieldElem = QQFieldElem(0),
+                                                    check::Bool = true) -> TorQuadModule
 
 Given a Z-lattice $M$ and a sublattice $N$ of $M$, return the torsion quadratic
 module $M/N$.
@@ -103,10 +27,10 @@ generators of the abelian group $M/N$.
 If `snf` is `true`, the underlying abelian group will be in Smith normal form.
 Otherwise, the images of the basis of $M$ will be used as the generators.
 """
-function torsion_quadratic_module(M::ZLat, N::ZLat; gens::Union{Nothing, Vector{<:Vector}} = nothing,
+function torsion_quadratic_module(M::ZZLat, N::ZZLat; gens::Union{Nothing, Vector{<:Vector}} = nothing,
                                                     snf::Bool = true,
-                                                    modulus::fmpq = fmpq(0),
-                                                    modulus_qf::fmpq = fmpq(0),
+                                                    modulus::QQFieldElem = QQFieldElem(0),
+                                                    modulus_qf::QQFieldElem = QQFieldElem(0),
                                                     check::Bool = true)
   @req ambient_space(M) === ambient_space(N) """
       Lattices must have same ambient space
@@ -128,7 +52,7 @@ function torsion_quadratic_module(M::ZLat, N::ZLat; gens::Union{Nothing, Vector{
       ginA = A(change_base_ring(FlintZZ, v))
       push!(gens_in_A, ginA)
     end
-    S, mS = sub(A, gens_in_A)
+    S, mS = sub(A, gens_in_A, false)
     if check
       if order(S) != order(A)
         throw(ArgumentError("Generators do not generate the torsion module"))
@@ -146,14 +70,14 @@ function torsion_quadratic_module(M::ZLat, N::ZLat; gens::Union{Nothing, Vector{
   if gens != nothing  && length(gens)>0
     gens_lift = gens
   else
-    gens_lift = Vector{fmpq}[reshape(collect(change_base_ring(FlintQQ, mS(s).coeff) * BM), :) for s in Hecke.gens(S)]
+    gens_lift = Vector{QQFieldElem}[reshape(collect(change_base_ring(FlintQQ, mS(s).coeff) * BM), :) for s in Hecke.gens(S)]
   end
 
   num = basis_matrix(M) * gram_matrix(ambient_space(M)) * transpose(basis_matrix(N))
   if iszero(modulus)
-    modulus = reduce(gcd, [a for a in num], init = zero(fmpq))
+    modulus = reduce(gcd, [a for a in num], init = zero(QQFieldElem))
   end
-  norm = reduce(gcd, diagonal(gram_matrix(N)), init = zero(fmpq))
+  norm = reduce(gcd, diagonal(gram_matrix(N)), init = zero(QQFieldElem))
 
   if iszero(modulus_qf)
     modulus_qf = gcd(norm, 2 * modulus)
@@ -161,13 +85,13 @@ function torsion_quadratic_module(M::ZLat, N::ZLat; gens::Union{Nothing, Vector{
     modulus_qf = modulus_qf
   end
 
-  T = TorQuadMod()
+  T = TorQuadModule()
   T.cover = M
   T.rels = N
   T.ab_grp = S
   T.proj = inv(mS).map
   T.gens_lift = gens_lift
-  T.gens_lift_mat = matrix(FlintQQ, length(gens_lift), degree(M), reduce(vcat, gens_lift, init = fmpq[]))
+  T.gens_lift_mat = matrix(FlintQQ, length(gens_lift), degree(M), reduce(vcat, gens_lift, init = QQFieldElem[]))
   T.modulus = modulus
   T.modulus_qf = modulus_qf
   T.value_module = QmodnZ(modulus)
@@ -176,8 +100,8 @@ function torsion_quadratic_module(M::ZLat, N::ZLat; gens::Union{Nothing, Vector{
   return T
 end
 
-@doc Markdown.doc"""
-    discriminant_group(L::ZLat) -> TorQuadMod
+@doc raw"""
+    discriminant_group(L::ZZLat) -> TorQuadModule
 
 Return the discriminant group of `L`.
 
@@ -191,7 +115,7 @@ $$D \times D \to \Q / \Z \qquad (x,y) \mapsto \Phi(x,y) + \Z.$$
 If `L` is even, then the discriminant group is equipped with the discriminant
 quadratic form $D \to \Q / 2 \Z, x \mapsto \Phi(x,x) + 2\Z$.
 """
-@attr function discriminant_group(L::ZLat)::TorQuadMod
+@attr function discriminant_group(L::ZZLat)::TorQuadModule
   @req is_integral(L) "The lattice must be integral"
   if rank(L) == 0
     T = torsion_quadratic_module(dual(L), L, modulus = one(QQ), modulus_qf = QQ(2))
@@ -202,30 +126,30 @@ quadratic form $D \to \Q / 2 \Z, x \mapsto \Phi(x,x) + 2\Z$.
   return T
 end
 
-@doc Markdown.doc"""
-    order(T::TorQuadMod) -> fmpz
+@doc raw"""
+    order(T::TorQuadModule) -> ZZRingElem
 
 Return the order of `T`
 """
-function order(T::TorQuadMod)
+function order(T::TorQuadModule)
   return order(abelian_group(T))
 end
 
-@doc Markdown.doc"""
-    exponent(T::TorQuadMod) -> fmpz
+@doc raw"""
+    exponent(T::TorQuadModule) -> ZZRingElem
 
 Return the exponent of `T`
 """
-function exponent(T::TorQuadMod)
+function exponent(T::TorQuadModule)
   return exponent(abelian_group(T))
 end
 
-@doc Markdown.doc"""
-    elementary_divisors(T::TorQuadMod) -> Vector{fmpz}
+@doc raw"""
+    elementary_divisors(T::TorQuadModule) -> Vector{ZZRingElem}
 
 Return the elementary divisors of underlying abelian group of `T`.
 """
-function elementary_divisors(T::TorQuadMod)
+function elementary_divisors(T::TorQuadModule)
   return elementary_divisors(abelian_group(T))
 end
 
@@ -235,54 +159,54 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    abelian_group(T::TorQuadMod) -> GrpAbFinGen
+@doc raw"""
+    abelian_group(T::TorQuadModule) -> GrpAbFinGen
 
 Return the underlying abelian group of `T`.
 """
-abelian_group(T::TorQuadMod) = T.ab_grp
+abelian_group(T::TorQuadModule) = T.ab_grp
 
-@doc Markdown.doc"""
-    cover(T::TorQuadMod) -> ZLat
+@doc raw"""
+    cover(T::TorQuadModule) -> ZZLat
 
 For $T=M/N$ this returns $M$.
 """
-cover(T::TorQuadMod) = T.cover
+cover(T::TorQuadModule) = T.cover
 
-@doc Markdown.doc"""
-    relations(T::TorQuadMod) -> ZLat
+@doc raw"""
+    relations(T::TorQuadModule) -> ZZLat
 
 For $T=M/N$ this returns $N$.
 """
-relations(T::TorQuadMod) = T.rels
+relations(T::TorQuadModule) = T.rels
 
-@doc Markdown.doc"""
-    value_module(T::TorQuadMod)
+@doc raw"""
+    value_module(T::TorQuadModule)
 
 Return the value module `Q/nZ` of the bilinear form of `T`.
 """
-value_module(T::TorQuadMod) = T.value_module
+value_module(T::TorQuadModule) = T.value_module
 
-@doc Markdown.doc"""
-    value_module_quadratic_form(T::TorQuadMod)
+@doc raw"""
+    value_module_quadratic_form(T::TorQuadModule)
 
 Return the value module `Q/mZ` of the quadratic form of `T`.
 """
-value_module_quadratic_form(T::TorQuadMod) = T.value_module_qf
+value_module_quadratic_form(T::TorQuadModule) = T.value_module_qf
 
-@doc Markdown.doc"""
-    modulus_bilinear_form(T::TorQuadMod) -> fmpq
+@doc raw"""
+    modulus_bilinear_form(T::TorQuadModule) -> QQFieldElem
 
 Return the modulus of the value module of the bilinear form of`T`.
 """
-modulus_bilinear_form(T::TorQuadMod) = T.modulus
+modulus_bilinear_form(T::TorQuadModule) = T.modulus
 
-@doc Markdown.doc"""
-    modulus_quadratic_form(T::TorQuadMod) -> fmpq
+@doc raw"""
+    modulus_quadratic_form(T::TorQuadModule) -> QQFieldElem
 
 Return the modulus of the value module of the quadratic form of `T`.
 """
-modulus_quadratic_form(T::TorQuadMod) = T.modulus_qf
+modulus_quadratic_form(T::TorQuadModule) = T.modulus_qf
 
 ################################################################################
 #
@@ -290,12 +214,12 @@ modulus_quadratic_form(T::TorQuadMod) = T.modulus_qf
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    gram_matrix_bilinear(T::TorQuadMod) -> fmpq_mat
+@doc raw"""
+    gram_matrix_bilinear(T::TorQuadModule) -> QQMatrix
 
 Return the gram matrix of the bilinear form of `T`.
 """
-function gram_matrix_bilinear(T::TorQuadMod)
+function gram_matrix_bilinear(T::TorQuadModule)
   if isdefined(T, :gram_matrix_bilinear)
     return T.gram_matrix_bilinear
   end
@@ -310,15 +234,15 @@ function gram_matrix_bilinear(T::TorQuadMod)
   return G
 end
 
-@doc Markdown.doc"""
-    gram_matrix_quadratic(T::TorQuadMod) -> fmpq_mat
+@doc raw"""
+    gram_matrix_quadratic(T::TorQuadModule) -> QQMatrix
 
 Return the 'gram matrix' of the quadratic form of `T`.
 
 The off diagonal entries are given by the bilinear form whereas the
 diagonal entries are given by the quadratic form.
 """
-function gram_matrix_quadratic(T::TorQuadMod)
+function gram_matrix_quadratic(T::TorQuadModule)
   if isdefined(T, :gram_matrix_quadratic)
     return T.gram_matrix_quadratic
   end
@@ -342,7 +266,7 @@ end
 ################################################################################
 
 # TODO: Print like abelian group
-function Base.show(io::IO, ::MIME"text/plain" , T::TorQuadMod)
+function Base.show(io::IO, ::MIME"text/plain" , T::TorQuadModule)
   @show_name(io, T)
   print(io, "Finite quadratic module over Integer Ring with underlying abelian group\n")
   println(io, abelian_group(T))
@@ -351,17 +275,17 @@ function Base.show(io::IO, ::MIME"text/plain" , T::TorQuadMod)
   show(io,MIME"text/plain"(), gram_matrix_quadratic(T))
 end
 
-function Base.show(io::IO, T::TorQuadMod)
+function Base.show(io::IO, T::TorQuadModule)
   compact = get(io, :compact, false)
   if compact
     name = get_attribute(T,:name)
     if name !== nothing
       print(io, name)
     else
-      print(io, "TorQuadMod ", gram_matrix_quadratic(T))
+      print(io, "TorQuadModule ", gram_matrix_quadratic(T))
     end
   else
-    print(io, "TorQuadMod: ")
+    print(io, "TorQuadModule: ")
     A = abelian_group(T)
     if is_snf(A)
       show_snf_structure(io, abelian_group(T))
@@ -371,32 +295,22 @@ function Base.show(io::IO, T::TorQuadMod)
   end
 end
 
-
 ################################################################################
 #
 #  Elements
 #
 ################################################################################
 
-mutable struct TorQuadModElem
-  data::GrpAbFinGenElem
-  parent::TorQuadMod
+elem_type(::Type{TorQuadModule}) = TorQuadModuleElem
 
-  TorQuadModElem(T::TorQuadMod, a::GrpAbFinGenElem) = new(a, T)
-end
-export TorQuadModElem
-
-elem_type(::Type{TorQuadMod}) = TorQuadModElem
-
-
-################################################################################
+###############################################################################
 #
 #  Creation
 #
-################################################################################
+###############################################################################
 
-@doc Markdown.doc"""
-    (T::TorQuadMod)(a::GrpAbFinGenElem) -> TorQuadModElem
+@doc raw"""
+    (T::TorQuadModule)(a::GrpAbFinGenElem) -> TorQuadModuleElem
 
 Coerce `a` to `T`.
 
@@ -408,39 +322,41 @@ julia> T = discriminant_group(R);
 julia> A = abelian_group(T)
 GrpAb: (Z/2)^2 x (Z/4)^2
 
-julia> A(T(a))==a
+julia> a = rand(A);
+
+julia> A(T(a)) == a
 true
+```
 """
-function (T::TorQuadMod)(a::GrpAbFinGenElem)
+function (T::TorQuadModule)(a::GrpAbFinGenElem)
   @req abelian_group(T) === parent(a) "Parents do not match"
-  return TorQuadModElem(T, a)
+  return TorQuadModuleElem(T, a)
 end
 
 # Coerces an element of the ambient space of cover(T) to T
-@doc Markdown.doc"""
-    (T::TorQuadMod)(v::Vector) -> TorQuadModElem
+@doc raw"""
+    (T::TorQuadModule)(v::Vector) -> TorQuadModuleElem
 
 Coerce `v` to `T`.
 
 For `T = M/N` this assumes that `v` lives in the ambient space of `M`
 and $v \in M$.
 """
-function (T::TorQuadMod)(v::Vector)
+function (T::TorQuadModule)(v::Vector)
   @req length(v) == dim(ambient_space(cover(T))) "Vector of wrong length"
   vv = map(FlintQQ, v)
-  if eltype(vv) != fmpq
+  if eltype(vv) != QQFieldElem
     error("Cannot coerce elements to the rationals")
   end
-  return T(vv::Vector{fmpq})
+  return T(vv::Vector{QQFieldElem})
 end
 
-function (T::TorQuadMod)(v::Vector{fmpq})
+function (T::TorQuadModule)(v::Vector{QQFieldElem})
   @req length(v) == degree(cover(T)) "Vector of wrong length"
   vv = matrix(FlintQQ, 1, length(v), v)
   vv = change_base_ring(FlintZZ, solve_left(basis_matrix(cover(T)), vv))
   return T(abelian_group(T)(vv * T.proj))
 end
-
 
 ################################################################################
 #
@@ -448,7 +364,7 @@ end
 #
 ################################################################################
 
-function Base.show(io::IO, a::TorQuadModElem)
+function Base.show(io::IO, a::TorQuadModuleElem)
   v = a.data.coeff
   print(io, "[")
   for i in 1:length(v)
@@ -467,7 +383,7 @@ end
 #
 ################################################################################
 
-function Base.:(==)(a::TorQuadModElem, b::TorQuadModElem)
+function Base.:(==)(a::TorQuadModuleElem, b::TorQuadModuleElem)
   if parent(a) !== parent(b)
     return false
   else
@@ -475,7 +391,7 @@ function Base.:(==)(a::TorQuadModElem, b::TorQuadModElem)
   end
 end
 
-iszero(a::TorQuadModElem) = iszero(a.data)
+iszero(a::TorQuadModuleElem) = iszero(a.data)
 
 ################################################################################
 #
@@ -483,21 +399,27 @@ iszero(a::TorQuadModElem) = iszero(a.data)
 #
 ################################################################################
 
-function gens(T::TorQuadMod)
+function gens(T::TorQuadModule)
   if isdefined(T, :gens)
-    return T.gens::Vector{TorQuadModElem}
+    return T.gens::Vector{TorQuadModuleElem}
   else
-    _gens = TorQuadModElem[T(g) for g in gens(abelian_group(T))]
+    _gens = TorQuadModuleElem[T(g) for g in gens(abelian_group(T))]
     T.gens = _gens
     return _gens
   end
 end
 
-ngens(T::TorQuadMod) = length(T.gens_lift)
+ngens(T::TorQuadModule) = length(T.gens_lift)
 
+function gen(T::TorQuadModule, i::Int)
+  if isdefined(T, :gens)
+    return gens(T)[i]
+  end
+  return T(gen(abelian_group(T), i))
+end
 
-@doc Markdown.doc"""
-    getindex(T::TorQuadMod, i::Int) -> TorQuadModElem
+@doc raw"""
+    getindex(T::TorQuadModule, i::Int) -> TorQuadModuleElem
 
 Return the `i`-th generator of `T`.
 
@@ -516,24 +438,19 @@ julia> D[2]
 [0, 1, 0, 0]
 ```
 """
-function getindex(T::TorQuadMod, i::Int)
-  if isdefined(T, :gens)
-    return gens(T)[i]
-  end
-  return T(abelian_group(T)[i])
-end
+getindex(T::TorQuadModule, i::Int) = gen(T, i)
 
-parent(a::TorQuadModElem) = a.parent
+parent(a::TorQuadModuleElem) = a.parent
 
-@doc Markdown.doc"""
-    data(a::TorQuadModElem) -> GrpAbFinGenElem
+@doc raw"""
+    data(a::TorQuadModuleElem) -> GrpAbFinGenElem
 
 Return `a` as an element of the underlying abelian group.
 """
-data(a::TorQuadModElem) = a.data
+data(a::TorQuadModuleElem) = a.data
 
-@doc Markdown.doc"""
-    (A::GrpAbFinGen)(a::TorQuadModElem)
+@doc raw"""
+    (A::GrpAbFinGen)(a::TorQuadModuleElem)
 
 Return `a` as an element of the underlying abelian group.
 
@@ -553,43 +470,51 @@ julia> d == D(A(d))
 true
 ```
 """
-function (A::GrpAbFinGen)(a::TorQuadModElem)
+function (A::GrpAbFinGen)(a::TorQuadModuleElem)
   @req A === abelian_group(parent(a)) "Parents do not match"
   return a.data
 end
 
+@doc raw"""
+    id(T::TorQuadModule) -> TorQuadModuleElem
+
+Return the identity element for the abelian group structure on `T`.
+"""
+id(T::TorQuadModule) = T(id(abelian_group(T)))
+
 ################################################################################
 #
-#  Arithmetic
+#  Arithmetic of elements
 #
 ################################################################################
 
-function Base.:(+)(a::TorQuadModElem, b::TorQuadModElem)
+function Base.:(+)(a::TorQuadModuleElem, b::TorQuadModuleElem)
   @req parent(a) === parent(b) "Parents do not match"
   T = parent(a)
   return T(a.data + b.data)
 end
 
-function Base.:(-)(a::TorQuadModElem)
+function Base.:(-)(a::TorQuadModuleElem)
   T = parent(a)
   return T(-a.data)
 end
 
-function Base.:(-)(a::TorQuadModElem, b::TorQuadModElem)
+function Base.:(-)(a::TorQuadModuleElem, b::TorQuadModuleElem)
   @req parent(a) === parent(b) "Parents do not match"
+  T = parent(a)
   return T(a.data - b.data)
 end
 
-function Base.:(*)(a::TorQuadModElem, b::fmpz)
+function Base.:(*)(a::TorQuadModuleElem, b::ZZRingElem)
   T = parent(a)
   return T(a.data * b)
 end
 
-Base.:(*)(a::fmpz, b::TorQuadModElem) = b * a
+Base.:(*)(a::ZZRingElem, b::TorQuadModuleElem) = b * a
 
-Base.:(*)(a::Integer, b::TorQuadModElem) = fmpz(a) * b
+Base.:(*)(a::Integer, b::TorQuadModuleElem) = ZZRingElem(a) * b
 
-Base.:(*)(a::TorQuadModElem, b::Integer) = b * a
+Base.:(*)(a::TorQuadModuleElem, b::Integer) = b * a
 
 ################################################################################
 #
@@ -597,18 +522,18 @@ Base.:(*)(a::TorQuadModElem, b::Integer) = b * a
 #
 ################################################################################
 
-function Base.:(*)(a::TorQuadModElem, b::TorQuadModElem)
+function Base.:(*)(a::TorQuadModuleElem, b::TorQuadModuleElem)
   T = parent(a)
   z = inner_product(ambient_space(cover(T)), lift(a), lift(b))
   return value_module(T)(z)
 end
 
-@doc Markdown.doc"""
-    inner_product(a::TorQuadModElem, b::TorQuadModElem)
+@doc raw"""
+    inner_product(a::TorQuadModuleElem, b::TorQuadModuleElem)
 
 Return the inner product of `a` and `b`.
 """
-inner_product(a::TorQuadModElem, b::TorQuadModElem)=(a*b)
+inner_product(a::TorQuadModuleElem, b::TorQuadModuleElem)=(a*b)
 
 ################################################################################
 #
@@ -616,8 +541,8 @@ inner_product(a::TorQuadModElem, b::TorQuadModElem)=(a*b)
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    quadratic_product(a::TorQuadModElem)
+@doc raw"""
+    quadratic_product(a::TorQuadModuleElem)
 
 Return the quadratic product of `a`.
 
@@ -625,7 +550,7 @@ It is defined in terms of a representative:
 for $b + M \in M/N=T$ this returns
 $\Phi(b,b) + n \Z$..
 """
-function quadratic_product(a::TorQuadModElem)
+function quadratic_product(a::TorQuadModuleElem)
   T = parent(a)
   al = lift(a)
   z = inner_product(ambient_space(cover(T)), al, al)
@@ -634,11 +559,11 @@ end
 
 ################################################################################
 #
-#  order
+#  Order
 #
 ################################################################################
 
-order(a::TorQuadModElem) = order(a.data)
+order(a::TorQuadModuleElem) = order(a.data)
 
 ################################################################################
 #
@@ -646,27 +571,26 @@ order(a::TorQuadModElem) = order(a.data)
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    lift(a::TorQuadModElem) -> Vector{fmpq}
+@doc raw"""
+    lift(a::TorQuadModuleElem) -> Vector{QQFieldElem}
 
 Lift `a` to the ambient space of `cover(parent(a))`.
 
 For $a + N \in M/N$ this returns the representative $a$.
 """
-function lift(a::TorQuadModElem)
+function lift(a::TorQuadModuleElem)
   T = parent(a)
   z = change_base_ring(FlintQQ, a.data.coeff) * T.gens_lift_mat
-  return fmpq[z[1, i] for i in 1:ncols(z)]
+  return QQFieldElem[z[1, i] for i in 1:ncols(z)]
 end
 
-@doc Markdown.doc"""
-    representative(a::TorQuadModElem) -> Vector{fmpq}
+@doc raw"""
+    representative(a::TorQuadModuleElem) -> Vector{QQFieldElem}
 
 For $a + N \in M/N$ this returns the representative $a$.
 An alias for `lift(a)`.
 """
-representative(x::TorQuadModElem) = lift(x)
-
+representative(x::TorQuadModuleElem) = lift(x)
 
 ################################################################################
 #
@@ -674,18 +598,18 @@ representative(x::TorQuadModElem) = lift(x)
 #
 ################################################################################
 
-Base.length(T::TorQuadMod) = Int(order(T))
+Base.length(T::TorQuadModule) = Int(order(T))
 
-Base.IteratorSize(::Type{TorQuadMod}) = Base.HasLength()
+Base.IteratorSize(::Type{TorQuadModule}) = Base.HasLength()
 
-Base.eltype(::Type{TorQuadMod}) = TorQuadModElem
+Base.eltype(::Type{TorQuadModule}) = TorQuadModuleElem
 
-function Base.iterate(T::TorQuadMod)
+function Base.iterate(T::TorQuadModule)
   a, st = iterate(abelian_group(T))
   return T(a), st
 end
 
-function Base.iterate(T::TorQuadMod, st::UInt)
+function Base.iterate(T::TorQuadModule, st::UInt)
   st >= order(T) && return nothing
   a, st = iterate(abelian_group(T), st)
   return T(a), st
@@ -693,35 +617,31 @@ end
 
 ################################################################################
 #
-#  Maps between torsion quadratic modules
+#  Map between torsion quadratic modules
 #
 ################################################################################
 
-mutable struct TorQuadModMor <: Map{TorQuadMod, TorQuadMod, HeckeMap, TorQuadModMor}
-  header::MapHeader{TorQuadMod, TorQuadMod}
-  map_ab::GrpAbFinGenMap
+@doc raw"""
+    hom(T::TorQuadModule, S::TorQuadModule, M::ZZMatrix) -> TorQuadModuleMor
 
-  function TorQuadModMor(T::TorQuadMod, S::TorQuadMod, m::GrpAbFinGenMap)
-    z = new()
-    z.header = MapHeader(T, S)
-    z.map_ab = m
-    return z
-  end
-end
-export TorQuadModMor
-
-################################################################################
-#
-#  User constructors
-#
-################################################################################
-
-function hom(T::TorQuadMod, S::TorQuadMod, M::fmpz_mat)
+Given two torsion quadratic modules `T` and `S`, and a matrix `M` representing
+an abelian group homomorphism between the underlying groups of `T` and `S`,
+return the corresponding abelian group homomorphism between `T` and `S`.
+"""
+function hom(T::TorQuadModule, S::TorQuadModule, M::ZZMatrix)
   map_ab = hom(abelian_group(T), abelian_group(S), M)
-  return TorQuadModMor(T, S, map_ab)
+  return TorQuadModuleMor(T, S, map_ab)
 end
 
-function hom(T::TorQuadMod, S::TorQuadMod, img::Vector{TorQuadModElem})
+@doc raw"""
+    hom(T::TorQuadModule, s::TorQuadModule, img::Vector{TorQuadModuleElem})
+                                              -> TorQuadModuleMor
+
+Given two torsion quadratic modules `T` and `S`, and a set of elements of `S`
+containing as many elements as `ngens(T)`, return the abelian group homomorphism
+between `T` and `S` mapping the generators of `T` to the elements of `img`.
+"""
+function hom(T::TorQuadModule, S::TorQuadModule, img::Vector{TorQuadModuleElem})
   _img = GrpAbFinGenElem[]
   @req length(img) == ngens(T) "Wrong number of elements"
   for g in img
@@ -729,77 +649,292 @@ function hom(T::TorQuadMod, S::TorQuadMod, img::Vector{TorQuadModElem})
     push!(_img, abelian_group(S)(g))
   end
   map_ab = hom(abelian_group(T), abelian_group(S), _img)
-  return TorQuadModMor(T, S, map_ab)
+  return TorQuadModuleMor(T, S, map_ab)
 end
 
-function identity_map(T::TorQuadMod)
+@doc raw"""
+    abelian_group_homomorphism(f::TorQuadModuleMor) -> GrpAbFinGenMap
+
+Return the underlying abelian group homomorphism of `f`.
+"""
+abelian_group_homomorphism(f::TorQuadModuleMor) = f.map_ab
+
+@doc raw"""
+    matrix(f::TorQuadModuleMor) -> ZZMatrix
+
+Return the matrix defining the underlying abelian group homomorphism of `f`.
+"""
+matrix(f::TorQuadModuleMor) = matrix(abelian_group_homomorphism(f))
+
+@doc raw"""
+    identity_map(T::TorQuadModule) -> TorQuadModuleMor
+
+Return the identity map of `T`.
+"""
+function identity_map(T::TorQuadModule)
   map_ab = id_hom(abelian_group(T))
-  return TorQuadModMor(T, T, map_ab)
+  return TorQuadModuleMor(T, T, map_ab)
 end
 
-id_hom(T::TorQuadMod) = identity_map(T)
+@doc raw"""
+    trivial_morphism(T::TorQuadModule, U::TorQuadModule) -> TorQuadModuleMor
 
-function inv(f::TorQuadModMor)
+Return the abelian group homomorphism between `T` and `U` sending every
+elements of `T` to the zero element of `U`.
+"""
+trivial_morphism(T::TorQuadModule, U::TorQuadModule) = hom(T, U, TorQuadModuleElem[id(U) for a in gens(T)])
+
+@doc raw"""
+    trivial_morphism(T::TorQuadModule) -> TorQuadModuleMor
+
+Return the abelian group endomorphism of `T` sending every elements of `T`
+to the zero element of `T`.
+"""
+trivial_morphism(T::TorQuadModule) = trivial_morphism(T, T)
+
+@doc raw"""
+    zero(f::TorQuadModuleMor) -> TorQuadModuleMor
+
+Given a map `f` between two torsion quadratic modules `T` and `U`,
+return the trivial map between `T` and `U` (see [`trivial_morphism`](@ref)).
+"""
+zero(f::TorQuadModuleMor) = trivial_morphism(domain(f), codomain(f))
+
+@doc raw"""
+    id_hom(T::TorQuadModule) -> TorQuadModuleMor
+
+Alias for [`identity_map`](@ref).
+"""
+id_hom(T::TorQuadModule) = identity_map(T)
+
+@doc raw"""
+    inv(f::TorQuadModuleMor) -> TorQuadModuleMor
+
+Given a bijective abelian group homomorphism `f` between two torsion
+quadratic modules, return the inverse of `f`.
+"""
+function inv(f::TorQuadModuleMor)
+  @req is_bijective(f) "Underlying map must be bijective"
   map_ab = inv(f.map_ab)
-  return TorQuadModMor(codomain(f),domain(f),map_ab)
+  return TorQuadModuleMor(codomain(f),domain(f),map_ab)
 end
 
-function compose(f::TorQuadModMor, g::TorQuadModMor)
-  codomain(f) == domain(g) || error("incompatible (co)domains")
+@doc raw"""
+    compose(f::TorQuadModuleMor, g::TorQuadModuleMor) -> TorQuadModuleMor
+
+Given two abelian group homomorphisms $f\colon T \to S$ and
+$g \colon S \to U$ between torsion quadratic modules, return the
+composition $f\circ g\colon T \to U$.
+"""
+function compose(f::TorQuadModuleMor, g::TorQuadModuleMor)
+  @req codomain(f) == domain(g) "Codomain of the first map should agree with the domain of the second one"
   map_ab = compose(f.map_ab, g.map_ab)
-  return TorQuadModMor(domain(f), codomain(g), map_ab)
+  return TorQuadModuleMor(domain(f), codomain(g), map_ab)
 end
 
-function image(f::TorQuadModMor, a::TorQuadModElem)
+@doc raw"""
+    image(f::TorQuadModuleMor, a::TorQuadModuleElem) -> TorQuadModuleElem
+
+Given an abelian group homomorphism $f\colon T \to S$ between two torsion
+quadratic modules, and given an element `a` of `T`, return the image
+$f(a) \in S$.
+"""
+function image(f::TorQuadModuleMor, a::TorQuadModuleElem)
+  @req parent(a) === domain(f) "a must be an element of the domain of f"
   A = abelian_group(domain(f))
   return codomain(f)(f.map_ab(A(a)))
 end
 
-function preimage(f::TorQuadModMor, a::TorQuadModElem)
-  A = abelian_group(codomain(f))
-  return domain(f)(f.map_ab\(A(a)))
+@doc raw"""
+    has_preimage(f::TorQuadModuleMor, b::TorQuadModuleElem)
+                                      -> Bool, TorQuadModuleElem
+
+Given an abelian group homomorphism $f\colon T \to S$ between two
+torsion quadratic modules, and given an element `b` of `S`, return
+whether `b` is in the image of `T`. If it is the case, the function
+also returns a preimage of `b` by `f`. Otherwise, it returns the
+identity element in `T`.
+"""
+function has_preimage(f::TorQuadModuleMor, b::TorQuadModuleElem)
+  @req parent(b) === codomain(f) "b must be an element of the codomain of f"
+  ok, a = haspreimage(f.map_ab, data(b))
+  return ok, domain(f)(a)
 end
 
-@doc Markdown.doc"""
-    is_bijective(f::TorQuadModMor) -> Bool
+@doc raw"""
+    preimage(f::TorQuadModuleMor, b::TorQuadModuleElem)
+                                      -> TorQuadModuleElem
+
+Given an abelian group homomorphism `f` between two torsion quadratic
+modules, and given an element `b` in the image of `f`, return a preimage
+of `b` by `f`.
+"""
+function preimage(f::TorQuadModuleMor, a::TorQuadModuleElem)
+  ok, b = has_preimage(f, a)
+  @req ok "a is not in the image of f"
+  return b
+end
+
+@doc raw"""
+    is_bijective(f::TorQuadModuleMor) -> Bool
 
 Return whether `f` is bijective.
 """
-is_bijective(f::TorQuadModMor) = is_bijective(f.map_ab)
+is_bijective(f::TorQuadModuleMor) = is_bijective(f.map_ab)
 
-@doc Markdown.doc"""
-    is_surjective(f::TorQuadModMor) -> Bool
+@doc raw"""
+    is_surjective(f::TorQuadModuleMor) -> Bool
 
 Return whether `f` is surjective.
 """
-is_surjective(f::TorQuadModMor) = is_surjective(f.map_ab)
+is_surjective(f::TorQuadModuleMor) = is_surjective(f.map_ab)
 
-@doc Markdown.doc"""
-    is_injective(f::TorQuadModMor) -> Bool
+@doc raw"""
+    is_injective(f::TorQuadModuleMor) -> Bool
 
 Return whether `f` is injective.
 """
-is_injective(f::TorQuadModMor) = is_injective(f.map_ab)
+is_injective(f::TorQuadModuleMor) = is_injective(f.map_ab)
 
-# Rely on the algorithm implemeted for GrpAbFinGenMap
-@doc Markdown.doc"""
-    has_complement(i::TorQuadModMor) -> Bool, TorQuadModMor
+# Rely on the algorithm implemented for GrpAbFinGenMap
+@doc raw"""
+    has_complement(i::TorQuadModuleMor) -> Bool, TorQuadModuleMor
 
 Given a map representing the injection of a submodule $W$ of a torsion
-quadratic module $T$, return whether $W$ has an orthogonal complement
-$U$ in $T$. If yes, it returns an injection $U \to T$.
+quadratic module $T$, return whether $W$ has a complement $U$ in $T$.
+If yes, it returns an injection $U \to T$.
+
+Note: if such a $U$ exists, $W$ and $U$ are in direct sum inside $T$
+but they are not necessarily orthogonal to each other.
 """
-function has_complement(i::TorQuadModMor)
+function has_complement(i::TorQuadModuleMor)
   @req is_injective(i) "i must be injective"
   T = codomain(i)
   bool, jab = Hecke.has_complement(i.map_ab)
   if !bool
-    return (false, sub(T, TorQuadModElem[])[2])
+    return (false, sub(T, TorQuadModuleElem[])[2])
   end
   Qab = domain(jab)
   Q, j = sub(T, [T(jab(a)) for a in gens(Qab)])
   return (true, j)
 end
+
+@doc raw"""
+    kernel(f::TorQuadModuleMor) -> TorQuadModule, TorQuadModuleMor
+
+Given an abelian group homomorphism `f` between two torsion quadratic modules `T`
+and `U`, return the kernel `S` of `f` as well as the injection $S \to T$.
+"""
+function kernel(f::TorQuadModuleMor)
+  g = abelian_group_homomorphism(f)
+  Kg, KgtoA = kernel(g)
+  S, StoKg = snf(Kg)
+  return sub(domain(f), TorQuadModuleElem[domain(f)(KgtoA(StoKg(a))) for a in gens(S)])
+end
+
+################################################################################
+#
+#  Arithmetic of maps
+#
+################################################################################
+
+@doc raw"""
+    +(f::TorQuadModuleMor, g::TorQuadModuleMor) -> TorQuadModuleMor
+
+Given two abelian group homomorphisms `f` and `g` between the same torsion
+quadratic modules `T` and `U`, return the pointwise sum `h` of `f` and `g`
+which sends every element `a` of `T` to $h(a) := f(a) + g(a)$.
+"""
+function Base.:(+)(f::TorQuadModuleMor, g::TorQuadModuleMor)
+  @req domain(f) === domain(g) "f and g must have the same domain"
+  @req codomain(f) === codomain(g) "f and g must have the same codomain"
+  hab = abelian_group_homomorphism(f) + abelian_group_homomorphism(g)
+  return TorQuadModuleMor(domain(f), codomain(f), hab)
+end
+
+@doc raw"""
+    -(f::TorQuadModuleMor) -> TorQuadModuleMor
+
+Given an abelian group homomorphism `f` between two torsion quadratic modules
+`T` and `U`, return the pointwise opposite morphism `h` of `f` which sends every
+element `a` of `T` to $h(a) := -f(a)$.
+"""
+function Base.:(-)(f::TorQuadModuleMor)
+  hab = -abelian_group_homomorphism(f)
+  return TorQuadModuleMor(domain(f), codomain(f), hab)
+end
+
+@doc raw"""
+    -(f::TorQuadModuleMor, g::TorQuadModuleMor) -> TorQuadModuleMor
+
+Given two abelian group homomorphisms `f` and `g` between the same torsion
+quadratic modules `T` and `U`, return the pointwise difference `h` of `f` and
+`g` which sends every element `a` of `T` to $h(a) := f(a) - g(a)$.
+"""
+function Base.:(-)(f::TorQuadModuleMor, g::TorQuadModuleMor)
+  @req domain(f) === domain(g) "f and g must have the same domain"
+  @req codomain(f) === codomain(g) "f and g must have the same codomain"
+  hab = abelian_group_homomorphism(f) - abelian_group_homomorphism(g)
+  return TorQuadModuleMor(domain(f), codomain(g), hab)
+end
+
+@doc raw"""
+    *(a::IntegerUnion, f::TorQuadModuleMor) -> TorQuadModuleMor
+    *(f::TorQuadModuleMor, a::IntegerUnion) -> TorQuadModuleMor
+
+Given an abelian group homomorphism `f` between two torsion quadratic modules
+`T` and `U`, return the pointwise $a$-twist morphism `h` of `f` which sends every
+element `b` of `T` to $h(b) := a*f(b)$.
+"""
+function Base.:(*)(a::IntegerUnion, f::TorQuadModuleMor)
+  hab = a*abelian_group_homomorphism(f)
+  return TorQuadModuleMor(domain(f), codomain(f), hab)
+end
+
+Base.:(*)(f::TorQuadModuleMor, a::IntegerUnion) = a*f
+
+@doc raw"""
+    ^(f::TorQuadModuleMor, n::Integer) -> TorQuadModuleMor
+
+Given an abelian group endomorphism `f` of a torsion quadratic module `T`
+return the $n$-fold self-composition of `f`.
+
+Note that `n` must be non-negative and $f^0$ is by default the identity map
+of the domain of `f` (see [`identity_map`](@ref)).
+"""
+function Base.:^(f::TorQuadModuleMor, n::Integer)
+  @req n >= 0 "n must be a positive integer"
+  @assert domain(f) === codomain(f) "f must be a self-map"
+  hab = abelian_group_homomorphism(f)^n
+  return TorQuadModuleMor(domain(f), codomain(f), hab)
+end
+
+@doc raw"""
+    evaluate(p::Union{ZZPolyRingElem, QQPolyRingElem}, f::TorQuadModuleMor)
+                                                          -> TorQuadModuleMor
+
+Given an abelian group endomorphism `f` of a torsion quadratic module `T` and
+an univariate polynomial `p` with integral coefficients, return the abelian
+group endormorphism $h := p(f)$ of `T` obtained by substituting the variable of
+`p` by `f`.
+
+Note that one also simply call `p(f)` instead of writing `evaluate(p, f)`.
+"""
+function evaluate(p::ZZPolyRingElem, f::TorQuadModuleMor)
+  @req domain(f) === codomain(f) "f must be a self-map"
+  hab = p(abelian_group_homomorphism(f))
+  return TorQuadModuleMor(domain(f), codomain(f), hab)
+end
+
+function evaluate(p::QQPolyRingElem, f::TorQuadModuleMor)
+  @req domain(f) === codomain(f) "f must be a self-map"
+  @req all(a -> is_integral(a), coefficients(p)) "p must have integral coefficients"
+  return evaluate(map_coefficients(ZZ, p), f)
+end
+
+(p::ZZPolyRingElem)(f::TorQuadModuleMor) = evaluate(p, f)
+
+(p::QQPolyRingElem)(f::TorQuadModuleMor) = evaluate(p, f)
 
 ################################################################################
 #
@@ -809,7 +944,7 @@ end
 
 # we test isometry in the semi-regular case: we compare the gram matrices of the
 # quadratic forms associated to the respective normal forms.
-function _isometry_semiregular(T::TorQuadMod, U::TorQuadMod)
+function _isometry_semiregular(T::TorQuadModule, U::TorQuadModule)
   # the zero map for default output
   hz = hom(T, U, zero_matrix(ZZ, ngens(T), ngens(U)))
   NT, TtoNT = normal_form(T)
@@ -831,7 +966,7 @@ end
 # "Not yet implemented". If yes, we compare the normal forms of the respective complements
 # which are semi-regular, and if the radicals have the same elementary divisors, we
 # complete the isometry by adding the identity matrix from one radical to the other one.
-function _isometry_degenerate(T::TorQuadMod, U::TorQuadMod)
+function _isometry_degenerate(T::TorQuadModule, U::TorQuadModule)
   # the zero map for default output
   hz = hom(T, U, zero_matrix(ZZ, ngens(T), ngens(U)))
   rqT, rqTtoT = radical_quadratic(T)
@@ -842,7 +977,12 @@ function _isometry_degenerate(T::TorQuadMod, U::TorQuadMod)
   # at this point we can map safely one radical to the other one
   boolT, jT = has_complement(rqTtoT)
   boolU, jU = has_complement(rqUtoU)
-  @req boolT && boolU "Not yet implemented" # Non split case
+  if boolU != boolT
+    return (false, hz)
+  end
+  if !boolT
+    return _isometry_non_split_degenerate(T, U)
+  end
   NT = domain(jT)
   NU = domain(jU)
   bool, isom = _isometry_semiregular(NT, NU)
@@ -852,10 +992,10 @@ function _isometry_degenerate(T::TorQuadMod, U::TorQuadMod)
   # now we know that there is an isometry, just need to put everything together
   # we first tidy the generators of the radicals up
   AT, ATtoab = snf(abelian_group(rqT))
-  geneT = TorQuadModElem[rqT(a) for a in ATtoab.(gens(AT))]
+  geneT = TorQuadModuleElem[rqT(a) for a in ATtoab.(gens(AT))]
   @assert sort(order.(geneT)) == sort(elementary_divisors(rqT))
   AU, AUtoab = snf(abelian_group(rqU))
-  geneU = TorQuadModElem[rqU(a) for a in AUtoab.(gens(AU))]
+  geneU = TorQuadModuleElem[rqU(a) for a in AUtoab.(gens(AU))]
   @assert sort(order.(geneU)) == sort(elementary_divisors(rqU))
   # we map generators of the radical and its complement in the module
   # to obtain an isomorphic module with a nicer basis
@@ -872,7 +1012,7 @@ function _isometry_degenerate(T::TorQuadMod, U::TorQuadMod)
   # need to create our bijective mapping by sending generators of one radical to the
   # other and applying our previously computed isometry to the complements
   I = identity_matrix(ZZ, length(geneT)-length(gens(NT))) # for the radicals
-  M = isom.map_ab.map                                     # for the complements
+  M = matrix(isom)                                        # for the complements
   D = block_diagonal_matrix([I, M])
   phi = hom(Tsub, Usub, D)
   @hassert :Lattice 1 is_bijective(phi)
@@ -881,9 +1021,38 @@ function _isometry_degenerate(T::TorQuadMod, U::TorQuadMod)
   return (true, TtoU)
 end
 
-@doc Markdown.doc"""
-    is_isometric_with_isometry(T::TorQuadMod, U::TorQuadMod)
-                                                   -> Bool, TorQuadModMor
+# This is a fallback function to cover the case where T and U are not semiregular
+# and they both do not split their radical quadratic.
+function _isometry_non_split_degenerate(T::TorQuadModule, U::TorQuadModule)
+  Ts, TstoT = snf(T)
+  n = ngens(Ts)
+  u_cand = [[u for u in U if quadratic_product(u) == quadratic_product(t) && order(u) == order(t)] for t in gens(Ts)]
+  waiting = Vector{TorQuadModuleElem}[[]]
+  while !isempty(waiting)
+    f = pop!(waiting)
+    i = length(f)
+    if i == n
+      return (true, compose(inv(TstoT), hom(Ts, U, f)))
+    end
+
+    t = Ts[i+1]
+    card = prod([order(Ts[k]) for k in 1:(i+1)], init = ZZ(1))
+    for u in u_cand[i+1]
+      if all(k -> u*f[k] == t*Ts[k], 1:i)
+        fnew = copy(f)
+        push!(fnew, u)
+        if order(sub(U, fnew)[1]) == card
+          push!(waiting, fnew)
+        end
+      end
+    end
+  end
+  return (false, hom(T, U, zero_matrix(ZZ, ngens(T), ngens(U))))
+end
+
+@doc raw"""
+    is_isometric_with_isometry(T::TorQuadModule, U::TorQuadModule)
+                                                   -> Bool, TorQuadModuleMor
 
 Return whether the torsion quadratic modules `T` and `U` are isometric.
 If yes, it also returns an isometry $T \to U$.
@@ -929,46 +1098,46 @@ julia> bool, phi = is_isometric_with_isometry(T,U)
 (true, Map with following data
 Domain:
 =======
-TorQuadMod [2//3 2//3 0 0 0; 2//3 2//3 2//3 0 2//3; 0 2//3 2//3 2//3 0; 0 0 2//3 2//3 0; 0 2//3 0 0 2//3]
+TorQuadModule [2//3 2//3 0 0 0; 2//3 2//3 2//3 0 2//3; 0 2//3 2//3 2//3 0; 0 0 2//3 2//3 0; 0 2//3 0 0 2//3]
 Codomain:
 =========
-TorQuadMod [4//3 0 0 0 0; 0 4//3 0 0 0; 0 0 4//3 0 0; 0 0 0 4//3 0; 0 0 0 0 4//3])
+TorQuadModule [4//3 0 0 0 0; 0 4//3 0 0 0; 0 0 4//3 0 0; 0 0 0 4//3 0; 0 0 0 0 4//3])
 
 julia> is_bijective(phi)
 true
 
 julia> T2, _ = sub(T, [-T[4], T[2]+T[3]+T[5]])
-(TorQuadMod: (Z/3)^2 [2//3 1//3; 1//3 2//3], Map with following data
+(TorQuadModule: (Z/3)^2 [2//3 1//3; 1//3 2//3], Map with following data
 Domain:
 =======
-TorQuadMod [2//3 1//3; 1//3 2//3]
+TorQuadModule [2//3 1//3; 1//3 2//3]
 Codomain:
 =========
-TorQuadMod [2//3 2//3 0 0 0; 2//3 2//3 2//3 0 2//3; 0 2//3 2//3 2//3 0; 0 0 2//3 2//3 0; 0 2//3 0 0 2//3])
+TorQuadModule [2//3 2//3 0 0 0; 2//3 2//3 2//3 0 2//3; 0 2//3 2//3 2//3 0; 0 0 2//3 2//3 0; 0 2//3 0 0 2//3])
 
 julia> U2, _ = sub(T, [T[4], T[2]+T[3]+T[5]])
-(TorQuadMod: (Z/3)^2 [2//3 2//3; 2//3 2//3], Map with following data
+(TorQuadModule: (Z/3)^2 [2//3 2//3; 2//3 2//3], Map with following data
 Domain:
 =======
-TorQuadMod [2//3 2//3; 2//3 2//3]
+TorQuadModule [2//3 2//3; 2//3 2//3]
 Codomain:
 =========
-TorQuadMod [2//3 2//3 0 0 0; 2//3 2//3 2//3 0 2//3; 0 2//3 2//3 2//3 0; 0 0 2//3 2//3 0; 0 2//3 0 0 2//3])
+TorQuadModule [2//3 2//3 0 0 0; 2//3 2//3 2//3 0 2//3; 0 2//3 2//3 2//3 0; 0 0 2//3 2//3 0; 0 2//3 0 0 2//3])
 
 julia> bool, phi = is_isometric_with_isometry(U2, T2)
 (true, Map with following data
 Domain:
 =======
-TorQuadMod [2//3 2//3; 2//3 2//3]
+TorQuadModule [2//3 2//3; 2//3 2//3]
 Codomain:
 =========
-TorQuadMod [2//3 1//3; 1//3 2//3])
+TorQuadModule [2//3 1//3; 1//3 2//3])
 
 julia> is_bijective(phi)
 true
 ```
 """
-function is_isometric_with_isometry(T::TorQuadMod, U::TorQuadMod)
+function is_isometric_with_isometry(T::TorQuadModule, U::TorQuadModule)
   if T === U
     return (true, id_hom(T))
   end
@@ -1010,9 +1179,9 @@ function is_isometric_with_isometry(T::TorQuadMod, U::TorQuadMod)
   end
 end
 
-@doc Markdown.doc"""
-    is_anti_isometric_with_anti_isometry(T::TorQuadMod, U::TorQuadMod)
-                                                     -> Bool, TorQuadModMor
+@doc raw"""
+    is_anti_isometric_with_anti_isometry(T::TorQuadModule, U::TorQuadModule)
+                                                     -> Bool, TorQuadModuleMor
 
 Return whether there exists an anti-isometry between the torsion quadratic
 modules `T` and `U`. If yes, it returns such an anti-isometry $T \to U$.
@@ -1036,10 +1205,10 @@ julia> bool, phi = is_anti_isometric_with_anti_isometry(T, T)
 (true, Map with following data
 Domain:
 =======
-TorQuadMod [4//5]
+TorQuadModule [4//5]
 Codomain:
 =========
-TorQuadMod [4//5])
+TorQuadModule [4//5])
 
 julia> a = gens(T)[1];
 
@@ -1084,10 +1253,10 @@ julia> bool, phi = is_anti_isometric_with_anti_isometry(T,T)
 (true, Map with following data
 Domain:
 =======
-TorQuadMod [3//5]
+TorQuadModule [3//5]
 Codomain:
 =========
-TorQuadMod [3//5])
+TorQuadModule [3//5])
 
 julia> a = gens(T)[1];
 
@@ -1095,7 +1264,7 @@ julia> a*a == -phi(a)*phi(a)
 true
 ```
 """
-function is_anti_isometric_with_anti_isometry(T::TorQuadMod, U::TorQuadMod)
+function is_anti_isometric_with_anti_isometry(T::TorQuadModule, U::TorQuadModule)
   # the zero map for default output
   hz = hom(T, U, zero_matrix(ZZ, ngens(T), ngens(U)))
   if order(T) != order(U)
@@ -1148,13 +1317,13 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    sub(T::TorQuadMod, generators::Vector{TorQuadModElem})
-                                                    -> TorQuadMod, TorQuadModMor
+@doc raw"""
+    sub(T::TorQuadModule, generators::Vector{TorQuadModuleElem})
+                                                    -> TorQuadModule, TorQuadModuleMor
 
 Return the submodule of `T` defined by `generators` and the inclusion morphism.
 """
-function sub(T::TorQuadMod, gens::Vector{TorQuadModElem})
+function sub(T::TorQuadModule, gens::Vector{TorQuadModuleElem})
   @req all(parent(x)===T for x in gens) "generators must lie in T"
   if length(gens) > 0
     _gens = [lift(g) for g in gens]
@@ -1173,8 +1342,8 @@ function sub(T::TorQuadMod, gens::Vector{TorQuadModElem})
   return S, inclusion
 end
 
-@doc Markdown.doc"""
-    torsion_quadratic_module(q::fmpq_mat) -> TorQuadMod
+@doc raw"""
+    torsion_quadratic_module(q::QQMatrix) -> TorQuadModule
 
 Return a torsion quadratic module with gram matrix given by `q` and
 value module `Q/Z`.
@@ -1208,7 +1377,7 @@ Gram matrix of the quadratic form with values in Q/Z
 [1//3]
 ```
 """
-function torsion_quadratic_module(q::fmpq_mat)
+function torsion_quadratic_module(q::QQMatrix)
   @req is_square(q) "Matrix must be a square matrix"
   @req is_symmetric(q) "Matrix must be symmetric"
 
@@ -1216,35 +1385,35 @@ function torsion_quadratic_module(q::fmpq_mat)
   Q = change_base_ring(FlintZZ, d * q)
   S, U, V = snf_with_transform(Q)
   D = change_base_ring(FlintQQ, U) * q * change_base_ring(FlintQQ, V)
-  L = Zlattice(1//d * identity_matrix(QQ, nrows(q)), gram = d^2 * q)
+  L = integer_lattice(1//d * identity_matrix(QQ, nrows(q)), gram = d^2 * q)
   denoms = [denominator(D[i, i]) for i in 1:ncols(D)]
   rels = diagonal_matrix(denoms) * U
   LL = lattice(ambient_space(L), 1//d * change_base_ring(QQ, rels))
-  return torsion_quadratic_module(L, LL, modulus = fmpq(1))
+  return torsion_quadratic_module(L, LL, modulus = QQFieldElem(1))
 end
 
-TorQuadMod(q::fmpq_mat) = torsion_quadratic_module(q)
+TorQuadModule(q::QQMatrix) = torsion_quadratic_module(q)
 
-@doc Markdown.doc"""
-    primary_part(T::TorQuadMod, m::fmpz)-> Tuple{TorQuadMod, TorQuadModMor}
+@doc raw"""
+    primary_part(T::TorQuadModule, m::ZZRingElem)-> Tuple{TorQuadModule, TorQuadModuleMor}
 
 Return the primary part of `T` as a submodule.
 """
-function primary_part(T::TorQuadMod, m::fmpz)
-  S, i = primary_part(T.ab_grp, m)
+function primary_part(T::TorQuadModule, m::ZZRingElem)
+  S, i = primary_part(T.ab_grp, m, false)
   genprimary = [i(s) for s in gens(S)]
   submod = sub(T, [T(a) for a in genprimary])
   return submod
 end
 
-primary_part(T::TorQuadMod,m::Int) = primary_part(T,ZZ(m))
+primary_part(T::TorQuadModule,m::Int) = primary_part(T,ZZ(m))
 
-@doc Markdown.doc"""
-    orthogonal_submodule(T::TorQuadMod, S::TorQuadMod)-> TorQuadMod
+@doc raw"""
+    orthogonal_submodule(T::TorQuadModule, S::TorQuadModule)-> TorQuadModule
 
 Return the orthogonal submodule to the submodule `S` of `T`.
 """
-function orthogonal_submodule(T::TorQuadMod, S::TorQuadMod)
+function orthogonal_submodule(T::TorQuadModule, S::TorQuadModule)
   @assert is_sublattice(cover(T), cover(S)) "The second argument is not a submodule of the first argument"
   V = ambient_space(cover(T))
   G = gram_matrix(V)
@@ -1260,67 +1429,68 @@ function orthogonal_submodule(T::TorQuadMod, S::TorQuadMod)
   ortho = intersect(lattice(V, B), lattice(V, orthogonal))
   Borth = basis_matrix(ortho)
   gens_orth = [T(vec(collect(Borth[i,:]))) for i in 1:nrows(Borth)]
+  gens_orth = [v for v in gens_orth if !iszero(v)]
   return sub(T, gens_orth)
 end
 
-@doc Markdown.doc"""
-    is_degenerate(T::TorQuadMod) -> Bool
+@doc raw"""
+    is_degenerate(T::TorQuadModule) -> Bool
 
 Return true if the underlying bilinear form is degenerate.
 """
-function is_degenerate(T::TorQuadMod)
+function is_degenerate(T::TorQuadModule)
   return get_attribute!(T,:is_degenerate) do
     return order(orthogonal_submodule(T,T)[1]) != 1
   end
 end
 
-@doc Markdown.doc"""
-    is_semi_regular(T::TorQuadMod) -> Bool
+@doc raw"""
+    is_semi_regular(T::TorQuadModule) -> Bool
 
 Return whether `T` is semi-regular, that is its quadratic radical is trivial
 (see [`radical_quadratic`](@ref)).
 """
-is_semi_regular(T::TorQuadMod) = is_trivial(abelian_group(radical_quadratic(T)[1]))
+is_semi_regular(T::TorQuadModule) = is_trivial(abelian_group(radical_quadratic(T)[1]))
 
-@doc Markdown.doc"""
-    radical_bilinear(T::TorQuadMod) -> TorQuadMod, TorQuadModMor
+@doc raw"""
+    radical_bilinear(T::TorQuadModule) -> TorQuadModule, TorQuadModuleMor
 
 Return the radical `\{x \in T | b(x,T) = 0\}` of the bilinear form `b` on `T`.
 """
-function radical_bilinear(T::TorQuadMod)
+function radical_bilinear(T::TorQuadModule)
   return orthogonal_submodule(T,T)
 end
 
-@doc Markdown.doc"""
-    radical_quadratic(T::TorQuadMod) -> TorQuadMod, TorQuadModMor
+@doc raw"""
+    radical_quadratic(T::TorQuadModule) -> TorQuadModule, TorQuadModuleMor
 
 Return the radical `\{x \in T | b(x,T) = 0 and q(x)=0\}` of the quadratic form
 `q` on `T`.
 """
-function radical_quadratic(T::TorQuadMod)
+function radical_quadratic(T::TorQuadModule)
   Kb, ib = radical_bilinear(T)
   G = gram_matrix_quadratic(Kb)*1//modulus_bilinear_form(Kb)
-  F = GF(2, cached=false)
-  G2 = map_entries(F, G)
+  F = Native.GF(2, cached=false)
+  G2 = matrix(F, nrows(G), 1, F.(diagonal(G)))
   r, kermat = left_kernel(G2)
   kermat = lift(kermat[1:r,:])
   g = gens(Kb)
   n = length(g)
-  kergen = TorQuadModElem[sum(kermat[i,j]*g[j] for j in 1:n) for i in 1:r]
+  kergen = TorQuadModuleElem[sum(kermat[i,j]*g[j] for j in 1:n) for i in 1:r]
   Kq, iq = sub(Kb,kergen)
   @assert iszero(gram_matrix_quadratic(Kq))
   return Kq, compose(iq,ib)
 end
 
-@doc Markdown.doc"""
-    rescale(T::TorQuadMod, k::RingElement) -> TorQuadMod
+@doc raw"""
+    rescale(T::TorQuadModule, k::RingElement) -> TorQuadModule
 
 Return the torsion quadratic module with quadratic form scaled by ``k``,
 where k is a non-zero rational number.
 If the old form was defined modulo `n`, then the new form is defined
 modulo `n k`.
 """
-function rescale(T::TorQuadMod, k::RingElement)
+function rescale(T::TorQuadModule, k::RingElement)
   @req !iszero(k) "Parameter ($k) must be non-zero"
   C = cover(T)
   V = rescale(ambient_space(C), k)
@@ -1332,8 +1502,8 @@ function rescale(T::TorQuadMod, k::RingElement)
                                         modulus_qf = abs(k)*modulus_quadratic_form(T))
 end
 
-@doc Markdown.doc"""
-    normal_form(T::TorQuadMod; partial=false) -> TorQuadMod, TorQuadModMor
+@doc raw"""
+    normal_form(T::TorQuadModule; partial=false) -> TorQuadModule, TorQuadModuleMor
 
 Return the normal form `N` of the given torsion quadratic module `T` along
 with the projection `T -> N`.
@@ -1342,7 +1512,7 @@ Let `K` be the radical of the quadratic form of `T`. Then `N = T/K` is
 half-regular. Two half-regular torsion quadratic modules are isometric
 if and only if they have equal normal forms.
 """
-function normal_form(T::TorQuadMod; partial=false)
+function normal_form(T::TorQuadModule; partial=false)
   if T.is_normal
     return T, id_hom(T)
   end
@@ -1354,7 +1524,7 @@ function normal_form(T::TorQuadMod; partial=false)
     N = T
     i = identity_map(T)
   end
-  normal_gens = TorQuadModElem[]
+  normal_gens = TorQuadModuleElem[]
   prime_div = prime_divisors(exponent(N))
   for p in prime_div
     D_p, I_p = primary_part(N, p)
@@ -1368,9 +1538,9 @@ function normal_form(T::TorQuadMod; partial=false)
     # the normal form is implemented for p-adic lattices
     # so we should work with the lattice q_p --> q_p^-1
     q_p1 = inv(q_p)
-    prec = valuation(exponent(T), p) + 5
+    prec = 2*valuation(exponent(T), p) + 5
     D, U = padic_normal_form(q_p1, p, prec=prec, partial=partial)
-    R = ResidueRing(ZZ, ZZ(p)^prec)
+    R = residue_ring(ZZ, ZZ(p)^prec)
     U = map_entries(x->R(ZZ(x)),U)
     U = transpose(inv(U))
 
@@ -1407,8 +1577,8 @@ function normal_form(T::TorQuadMod; partial=false)
   return S, J
 end
 
-@doc Markdown.doc"""
-    _brown_indecomposable(q::MatElem, p::fmpz) ->  fmpz
+@doc raw"""
+    _brown_indecomposable(q::MatElem, p::ZZRingElem) ->  ZZRingElem
 Return the Brown invariant of the indecomposable form ``q``.
 
 The values are taken from Table 2.1 in [Shim2016]_.
@@ -1419,13 +1589,13 @@ INPUT:
 EXAMPLES::
 
   julia> q = matrix(QQ, 1, 1, [1//3])
-  julia> _brown_indecomposable(q,fmpz(3))
+  julia> _brown_indecomposable(q,ZZRingElem(3))
   6
   julia> q = matrix(QQ, 1, 1, [2//3])
-  julia> _brown_indecomposable(q,fmpz(3))
+  julia> _brown_indecomposable(q,ZZRingElem(3))
   2
 """
-function _brown_indecomposable(q::MatElem, p::fmpz)
+function _brown_indecomposable(q::MatElem, p::ZZRingElem)
   v = valuation(denominator(q), p)
   if p == 2
     # brown(U) = 0
@@ -1458,8 +1628,8 @@ function _brown_indecomposable(q::MatElem, p::fmpz)
   return mod(0, 8)
 end
 
-@doc Markdown.doc"""
-    brown_invariant(self::TorQuadMod) -> Nemo.nmod
+@doc raw"""
+    brown_invariant(self::TorQuadModule) -> Nemo.zzModRingElem
 Return the Brown invariant of this torsion quadratic form.
 
 Let `(D,q)` be a torsion quadratic module with values in `Q / 2Z`.
@@ -1473,7 +1643,7 @@ torsion quadratic modules.
 
 # Examples
 ```jldoctest
-julia> L = Zlattice(gram=matrix(ZZ, [[2,-1,0,0],[-1,2,-1,-1],[0,-1,2,0],[0,-1,0,2]]));
+julia> L = integer_lattice(gram=matrix(ZZ, [[2,-1,0,0],[-1,2,-1,-1],[0,-1,2,0],[0,-1,0,2]]));
 
 julia> T = Hecke.discriminant_group(L);
 
@@ -1481,10 +1651,10 @@ julia> brown_invariant(T)
 4
 ```
 """
-function brown_invariant(T::TorQuadMod)
+function brown_invariant(T::TorQuadModule)
   @req modulus_quadratic_form(T) == 2 "the torsion quadratic form must have values in Q/2Z"
   @req !is_degenerate(T) "the torsion quadratic form must be non-degenerate"
-  brown = ResidueRing(ZZ, 8)(0)
+  brown = residue_ring(ZZ, 8)(0)
   for p in prime_divisors(exponent(T))
     q = normal_form(primary_part(T, p)[1])[1]
     q = gram_matrix_quadratic(q)
@@ -1496,16 +1666,16 @@ function brown_invariant(T::TorQuadMod)
   return brown
 end
 
-@doc Markdown.doc"""
-    genus(T::TorQuadMod, signature_pair::Tuple{Int, Int}) -> ZGenus
+@doc raw"""
+    genus(T::TorQuadModule, signature_pair::Tuple{Int, Int}) -> ZZGenus
 
 Return the genus of an integer lattice with discriminant group `T` and the
 given `signature_pair`. If no such genus exists, raise an error.
 
 # Reference
-[Nikulin79](@cite) Corollary 1.9.4 and 1.16.3.
+[Nik79](@cite) Corollary 1.9.4 and 1.16.3.
 """
-function genus(T::TorQuadMod, signature_pair::Tuple{Int, Int})
+function genus(T::TorQuadModule, signature_pair::Tuple{Int, Int})
   s_plus = signature_pair[1]
   s_minus = signature_pair[2]
   rank = s_plus + s_minus
@@ -1520,7 +1690,7 @@ function genus(T::TorQuadMod, signature_pair::Tuple{Int, Int})
   end
   disc = order(T)
   determinant = ZZ(-1)^s_minus * disc
-  local_symbols = ZpGenus[]
+  local_symbols = LocalZZGenus[]
   P = prime_divisors(2 * disc)
   sort!(P) # expects primes in ascending order
   for p in P
@@ -1532,7 +1702,7 @@ function genus(T::TorQuadMod, signature_pair::Tuple{Int, Int})
       G_p = change_base_ring(ZZ, G_p)
       genus_p = genus(G_p, p, valuation(elementary_divisors(D)[end], p))
     else
-      genus_p = ZpGenus(p, Vector{Int}[])
+      genus_p = LocalZZGenus(p, Vector{Int}[])
     end
     rk = rank - length(elementary_divisors(D))
     if rk > 0
@@ -1621,8 +1791,8 @@ function genus(T::TorQuadMod, signature_pair::Tuple{Int, Int})
     for b1 in block1
       for b2 in block2
         sym2[1:3] = [b0, b1, b2]
-        local_symbols[1] = ZpGenus(2, sym2)
-        genus = ZGenus(signature_pair, local_symbols)
+        local_symbols[1] = LocalZZGenus(2, sym2)
+        genus = ZZGenus(signature_pair, local_symbols)
         if _isglobal_genus(genus)
           # make the symbol sparse again.
           i = 0
@@ -1635,8 +1805,8 @@ function genus(T::TorQuadMod, signature_pair::Tuple{Int, Int})
             end
             i = i + 1
           end
-          local_symbols[1] = ZpGenus(2, sym2)
-          genus = ZGenus(signature_pair, local_symbols)
+          local_symbols[1] = LocalZZGenus(2, sym2)
+          genus = ZZGenus(signature_pair, local_symbols)
           return genus
         end
       end
@@ -1646,12 +1816,12 @@ function genus(T::TorQuadMod, signature_pair::Tuple{Int, Int})
 end
 
 
-@doc Markdown.doc"""
-    is_genus(T::TorQuadMod, signature_pair::Tuple{Int, Int}) -> Bool
+@doc raw"""
+    is_genus(T::TorQuadModule, signature_pair::Tuple{Int, Int}) -> Bool
 
 Return if there is an integral lattice with this signature and discriminant form.
 """
-function is_genus(T::TorQuadMod, signature_pair::Tuple{Int, Int})
+function is_genus(T::TorQuadModule, signature_pair::Tuple{Int, Int})
   try
     genus(T,signature_pair)
     return true
@@ -1660,7 +1830,7 @@ function is_genus(T::TorQuadMod, signature_pair::Tuple{Int, Int})
   end
 end
 
-function _is_genus_brown(T::TorQuadMod, signature_pair::Tuple{Int, Int})
+function _is_genus_brown(T::TorQuadModule, signature_pair::Tuple{Int, Int})
   s_plus = signature_pair[1]
   s_minus = signature_pair[2]
   even = modulus_quadratic_form(T) == 2
@@ -1695,7 +1865,6 @@ function _is_genus_brown(T::TorQuadMod, signature_pair::Tuple{Int, Int})
         return false
       end
     end
-    @show "hi"
     if p == 2
       if mod(rank, 2) != mod(length_p, 2)
         return false
@@ -1724,38 +1893,134 @@ end
 
 ###############################################################################
 #
-#  Orthogonal sum
+#  Sums
 #
 ###############################################################################
 
-@doc Markdown.doc"""
-    orthogonal_sum(T::TorQuadMod, U::TorQuadMod)
-                                    -> TorQuadMod, TorQuadModMor, TorQuadModMor
+@doc raw"""
+    +(T::TorQuadModule, U::TorQuadModule) -> TorQuadModule
 
-Return the orthogonal direct sum `S` of `T` and `U` as a quotient of the direct
-sum of their respective covers.
-
-It is given with the two injections $T \to S$ and $U \to S$.
+Given two torsion quadratic modules `T` and `U` whose covers are in the same
+ambient space, return their sum `S` defined as the quotient of the sum of their
+covers by the sum of their respective relation lattices.
 
 Note that `T` and `U` must have the same moduli, both bilinear and quadratic
 ones.
 """
-function orthogonal_sum(T::TorQuadMod, U::TorQuadMod)
+function +(T::TorQuadModule, U::TorQuadModule)
   @req modulus_bilinear_form(T) == modulus_bilinear_form(U) "T and U must have the same bilinear modulus"
   @req modulus_quadratic_form(T) == modulus_quadratic_form(U) "T and U must have the same quadratic modulus"
-  cT = cover(T)
-  rT = relations(T)
-  cU = cover(U)
-  rU = relations(U)
-  cS, cTincS, cUincS = orthogonal_sum(cT, cU)
-  rS = lattice(ambient_space(cS), block_diagonal_matrix([basis_matrix(rT), basis_matrix(rU)]))
-  geneT = [cTincS(lift(a)) for a in gens(T)]
-  geneU = [cUincS(lift(b)) for b in gens(U)]
-  S = torsion_quadratic_module(cS, rS, gens = vcat(geneT, geneU), modulus = modulus_bilinear_form(T), modulus_qf = modulus_quadratic_form(T))
-  TinS = hom(T, S, S.(geneT))
-  UinS = hom(U, S, S.(geneU))
-  return S, TinS, UinS
+  @req ambient_space(cover(T)) === ambient_space(cover(U)) "Covers must be in the same ambient space"
+  cS = cover(T) + cover(U)
+  rS = relations(T) + relations(U)
+  geneT = [lift(a) for a in gens(T)]
+  geneU = [lift(b) for b in gens(U)]
+  S = torsion_quadratic_module(cS, rS, gens = unique([g for g in vcat(geneT, geneU) if !is_zero(g)]), modulus = modulus_bilinear_form(T), modulus_qf = modulus_quadratic_form(T))
+  return S
 end
+
+function _biproduct(x::Vector{TorQuadModule}; proj = true)
+  @req length(x) >= 2 "Input must consist of at least two torsion quadratic modules"
+  mbf = modulus_bilinear_form(x[1])
+  mqf = modulus_quadratic_form(x[1])
+  @req all(i -> modulus_bilinear_form(x[i]) == mbf, 2:length(x)) "All torsion quadratic modules must have the same bilinear modulus"
+  @req all(i -> modulus_quadratic_form(x[i]) == mqf, 2:length(x)) "All torsion quadratic modules must have the same quadratic modulus"
+  cs = cover.(x)
+  rs = relations.(x)
+  C, injC, projC = biproduct(cs)
+  R = lattice(ambient_space(C), block_diagonal_matrix(basis_matrix.(rs)))
+  gensinj = Vector{Vector{QQFieldElem}}[]
+  gensproj = Vector{Vector{QQFieldElem}}[]
+  inj2 = TorQuadModuleMor[]
+  proj2 = TorQuadModuleMor[]
+  for i in 1:length(x)
+    gene = [injC[i](lift(a)) for a in gens(x[i])]
+    push!(gensinj, gene)
+  end
+  S = torsion_quadratic_module(C, R, gens = reduce(vcat, gensinj), modulus = mbf, modulus_qf = mqf)
+  for i in 1:length(x)
+    T = x[i]
+    iT = hom(T, S, S.(gensinj[i]))
+    push!(inj2, iT)
+  end
+  if proj
+    for i in 1:length(x)
+      gene = [projC[i](lift(a)) for a in gens(S)]
+      push!(gensproj, gene)
+    end
+    for i in 1:length(x)
+      T = x[i]
+      pT = hom(S, T, T.(gensproj[i]))
+      push!(proj2, pT)
+    end
+  end
+  return S, inj2, proj2
+end
+
+@doc raw"""
+    direct_sum(x::Vararg{TorQuadModule}) -> TorQuadModule, Vector{TorQuadModuleMor}
+    direct_sum(x::Vector{TorQuadModule}) -> TorQuadModule, Vector{TorQuadModuleMor}
+
+Given a collection of torsion quadratic modules $T_1, \ldots, T_n$, return
+their direct sum $T := T_1\oplus \ldots \oplus T_n$, together with the
+injections $T_i \to T$.
+
+For objects of type `TorQuadModule`, finite direct sums and finite direct products
+agree and they are therefore called biproducts.
+If one wants to obtain `T` as a direct product with the projections $T \to T_i$,
+one should call `direct_product(x)`.
+If one wants to obtain `T` as a biproduct with the injections $T_i \to T$ and the
+projections $T \to T_i$, one should call `biproduct(x)`.
+"""
+function direct_sum(x::Vector{TorQuadModule})
+  T, inj, = _biproduct(x, proj=false)
+  return T, inj
+end
+
+direct_sum(x::Vararg{TorQuadModule}) = direct_sum(collect(x))
+
+@doc raw"""
+    direct_product(x::Vararg{TorQuadModule}) -> TorQuadModule, Vector{TorQuadModuleMor}
+    direct_product(x::Vector{TorQuadModule}) -> TorQuadModule, Vector{TorQuadModuleMor}
+
+Given a collection of torsion quadratic modules $T_1, \ldots, T_n$, return
+their direct product $T := T_1\times \ldots \times T_n$, together with the
+projections $T \to T_i$.
+
+For objects of type `TorQuadModule`, finite direct sums and finite direct products
+agree and they are therefore called biproducts.
+If one wants to obtain `T` as a direct sum with the inctions $T_i \to T$,
+one should call `direct_sum(x)`.
+If one wants to obtain `T` as a biproduct with the injections $T_i \to T$ and the
+projections $T \to T_i$, one should call `biproduct(x)`.
+"""
+function direct_product(x::Vector{TorQuadModule})
+  T, _, proj = _biproduct(x)
+  return T, proj
+end
+
+direct_product(x::Vararg{TorQuadModule}) = direct_product(collect(x))
+
+@doc raw"""
+    biproduct(x::Vararg{TorQuadModule}) -> TorQuadModule, Vector{TorQuadModuleMor}, Vector{TorQuadModuleMor}
+    biproduct(x::Vector{TorQuadModule}) -> TorQuadModule, Vector{TorQuadModuleMor}, Vector{TorQuadModuleMor}
+
+Given a collection of torsion quadratic modules $T_1, \ldots, T_n$, return
+their biproduct $T := T_1\oplus \ldots \oplus T_n$, together with the
+injections $T_i \to T$ and the projections $T \to T_i$.
+
+For objects of type `TorQuadModule`, finite direct sums and finite direct products
+agree and they are therefore called biproducts.
+If one wants to obtain `T` as a direct sum with the inctions $T_i \to T$,
+one should call `direct_sum(x)`.
+If one wants to obtain `T` as a direct product with the projections $T \to T_i$,
+one should call `direct_product(x)`.
+"""
+function biproduct(x::Vector{TorQuadModule})
+  return _biproduct(x)
+end
+
+biproduct(x::Vararg{TorQuadModule}) = biproduct(collect(x))
 
 ###############################################################################
 #
@@ -1763,8 +2028,8 @@ end
 #
 ###############################################################################
 
-@doc Markdown.doc"""
-    is_primary_with_prime(T::TorQuadMod) -> Bool, fmpz
+@doc raw"""
+    is_primary_with_prime(T::TorQuadModule) -> Bool, ZZRingElem
 
 Given a torsion quadratic module `T`, return whether the underlying (finite)
 abelian group of `T` (see [`abelian_group`](@ref)) is a `p`-group for some prime
@@ -1773,7 +2038,7 @@ number `p`. In case it is, `p` is also returned as second output.
 Note that in the case of trivial groups, this function returns `(true, 1)`. If
 `T` is not primary, the second return value is `-1` by default.
 """
-function is_primary_with_prime(T::TorQuadMod)
+function is_primary_with_prime(T::TorQuadModule)
   @req !is_degenerate(T) "T must be non-degenerate"
   ed = elementary_divisors(T)
   if is_empty(ed)
@@ -1784,20 +2049,20 @@ function is_primary_with_prime(T::TorQuadMod)
   return bool, p
 end
 
-@doc Markdown.doc"""
-    is_primary(T::TorQuadMod, p::Union{Integer, fmpz}) -> Bool
+@doc raw"""
+    is_primary(T::TorQuadModule, p::Union{Integer, ZZRingElem}) -> Bool
 
 Given a torsion quadratic module `T` and a prime number `p`, return whether
 the underlying (finite) abelian group of `T` (see [`abelian_group`](@ref)) is
 a `p`-group.
 """
-function is_primary(T::TorQuadMod, p::Union{Integer, fmpz})
+function is_primary(T::TorQuadModule, p::Union{Integer, ZZRingElem})
   bool, q = is_primary_with_prime(T)
   return bool && q == p
 end
 
-@doc Markdown.doc"""
-    is_elementary_with_prime(T::TorQuadMod) -> Bool, fmpz
+@doc raw"""
+    is_elementary_with_prime(T::TorQuadModule) -> Bool, ZZRingElem
 
 Given a torsion quadratic module `T`, return whether the underlying (finite)
 abelian group of `T` (see [`abelian_group`](@ref)) is an elementary `p`-group,
@@ -1806,7 +2071,7 @@ for some prime number `p`. In case it is, `p` is also returned as second output.
 Note that in the case of trivial groups, this function returns `(true, 1)`. If
 `T` is not elementary, the second return value is `-1` by default.
 """
-function is_elementary_with_prime(T::TorQuadMod)
+function is_elementary_with_prime(T::TorQuadModule)
   bool, p = is_primary_with_prime(T)
   bool && p != 1 || return bool, p
   if p != elementary_divisors(T)[end]
@@ -1815,15 +2080,47 @@ function is_elementary_with_prime(T::TorQuadMod)
   return bool, p
 end
 
-@doc Markdown.doc"""
-    is_elementary(T::TorQuadMod, p::Union{Integer, fmpz}) -> Bool
+@doc raw"""
+    is_elementary(T::TorQuadModule, p::Union{Integer, ZZRingElem}) -> Bool
 
 Given a torsion quadratic module `T` and a prime number `p`, return whether the
 underlying (finite) abelian group of `T` (see [`abelian_group`](@ref)) is an
 elementary `p`-group.
 """
-function is_elementary(T::TorQuadMod, p::Union{Integer, fmpz})
+function is_elementary(T::TorQuadModule, p::Union{Integer, ZZRingElem})
   bool, q = is_elementary_with_prime(T)
   return bool && q == p
 end
+
+###############################################################################
+#
+#  Smith normal form
+#
+###############################################################################
+
+@doc raw"""
+    snf(T::TorQuadModule) -> TorQuadModule, TorQuadModuleMor
+
+Given a torsion quadratic module `T`, return a torsion quadratic module `S`,
+isometric to `T`, such that the underlying abelian group of `S` is in canonical
+Smith normal form. It comes with an isometry $f : S \to T$.
+"""
+function snf(T::TorQuadModule)
+  A = abelian_group(T)
+  if is_snf(A)
+    return T, id_hom(T)
+  end
+  G, f = snf(A)
+  S, f = sub(T, [T(f(g)) for g in gens(G)])
+  @assert is_bijective(f)
+  return (S, f)::Tuple{TorQuadModule, TorQuadModuleMor}
+end
+
+@doc raw"""
+    is_snf(T::TorQuadModule) -> Bool
+
+Given a torsion quadratic module `T`, return whether its
+underlying abelian group is in Smith normal form.
+"""
+is_snf(T::TorQuadModule) = is_snf(abelian_group(T))
 

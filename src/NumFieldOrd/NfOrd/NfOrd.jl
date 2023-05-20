@@ -60,7 +60,7 @@ fractional_ideal_type(::Type{NfAbsOrd{S, T}}) where {S, T} = NfOrdFracIdl
 
 Nemo.base_ring(::NfAbsOrd) = FlintZZ
 
-@doc Markdown.doc"""
+@doc raw"""
     parent(O::NfAbsOrd) -> NfOrdSet
 
 Returns the parent of $\mathcal O$, that is, the set of orders of the ambient
@@ -92,7 +92,7 @@ function assure_has_basis(O::NfAbsOrd)
   d = degree(O)
   B = Vector{elem_type(O)}(undef, d)
   for i in 1:length(b)
-    v = fmpz[fmpz(0) for j in 1:d]
+    v = ZZRingElem[ZZRingElem(0) for j in 1:d]
     one!(v[i])
     B[i] = NfAbsOrdElem(O, b[i], v)
   end
@@ -151,14 +151,14 @@ end
   end
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     basis(O::NfAbsOrd) -> Vector{NfAbsOrdElem}
 
 Returns the $\mathbf Z$-basis of $\mathcal O$.
 """
 @inline basis(O::NfAbsOrd; copy::Bool = true) = basis_ord(O, copy = copy)
 
-@doc Markdown.doc"""
+@doc raw"""
     basis(O::NfOrd, K::AnticNumberField) -> Vector{nf_elem}
 
 Returns the $\mathbf Z$-basis elements of $\mathcal O$ as elements of the
@@ -188,7 +188,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     basis_matrix(O::NfAbsOrd) -> FakeFmpqMat
 
 Returns the basis matrix of $\mathcal O$ with respect to the basis
@@ -203,7 +203,7 @@ function basis_matrix(O::NfAbsOrd; copy::Bool = true)
   end
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     basis_mat_inv(O::NfAbsOrd) -> FakeFmpqMat
 
 Returns the inverse of the basis matrix of $\mathcal O$.
@@ -280,8 +280,8 @@ function assure_has_discriminant(O::NfAbsOrd)
   return nothing
 end
 
-@doc Markdown.doc"""
-    discriminant(O::NfOrd) -> fmpz
+@doc raw"""
+    discriminant(O::NfOrd) -> ZZRingElem
 
 Returns the discriminant of $\mathcal O$.
 """
@@ -291,15 +291,15 @@ function discriminant(O::NfAbsOrd)
 end
 
 #TODO: compute differently in equation orders, this is the rres...
-@doc Markdown.doc"""
-    reduced_discriminant(O::NfOrd) -> fmpz
+@doc raw"""
+    reduced_discriminant(O::NfOrd) -> ZZRingElem
 
 Returns the reduced discriminant, that is, the largest elementary divisor of
 the trace matrix of $\mathcal O$.
 """
 function reduced_discriminant(O::NfOrd)
   if is_equation_order(O)
-    Zx = PolynomialRing(FlintZZ, cached = false)[1]
+    Zx = polynomial_ring(FlintZZ, cached = false)[1]
     f = Zx(nf(O).pol)
     return rres(f, derivative(f))
   end
@@ -312,8 +312,8 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    gen_index(O::NfOrd) -> fmpq
+@doc raw"""
+    gen_index(O::NfOrd) -> QQFieldElem
 
 Returns the generalized index of $\mathcal O$ with respect to the equation
 order of the ambient number field.
@@ -331,8 +331,8 @@ function gen_index(O::NfAbsOrd)
   end
 end
 
-@doc Markdown.doc"""
-    index(O::NfOrd) -> fmpz
+@doc raw"""
+    index(O::NfOrd) -> ZZRingElem
 
 Assuming that the order $\mathcal O$ contains the equation order
 $\mathbf Z[\alpha]$ of the ambient number field, this function returns the
@@ -357,8 +357,8 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    is_index_divisor(O::NfOrd, d::fmpz) -> Bool
+@doc raw"""
+    is_index_divisor(O::NfOrd, d::ZZRingElem) -> Bool
     is_index_divisor(O::NfOrd, d::Int) -> Bool
 
 Returns whether $d$ is a divisor of the index of $\mathcal O$. It is assumed
@@ -375,8 +375,8 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    ramified_primes(O::NfAbsOrd) -> Vector{fmpz}
+@doc raw"""
+    ramified_primes(O::NfAbsOrd) -> Vector{ZZRingElem}
 
 Returns the list of prime numbers that divide $\operatorname{disc}(\mathcal O)$.
 """
@@ -412,7 +412,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     minkowski_matrix(O::NfAbsOrd, abs_tol::Int = 64) -> arb_mat
 
 Returns the Minkowski matrix of $\mathcal O$.  Thus if $\mathcal O$ has degree
@@ -447,8 +447,8 @@ function minkowski_matrix(B::Vector{S}, abs_tol::Int = 64) where S <: NumFieldEl
   return M
 end
 
-@doc Markdown.doc"""
-    minkowski_gram_mat_scaled(O::NfAbsOrd, prec::Int = 64) -> fmpz_mat
+@doc raw"""
+    minkowski_gram_mat_scaled(O::NfAbsOrd, prec::Int = 64) -> ZZMatrix
 
 Let $c$ be the Minkowski matrix as computed by `minkowski_matrix` with precision $p$.
 This function computes $d = round(c 2^p)$ and returns $round(d d^t/2^p)$.
@@ -462,7 +462,7 @@ function minkowski_gram_mat_scaled(O::NfAbsOrd, prec::Int = 64)
     d = zero_matrix(FlintZZ, degree(O), degree(O))
     A = zero_matrix(FlintZZ, degree(O), degree(O))
     round_scale!(d, c, prec)
-    ccall((:fmpz_mat_gram, libflint), Nothing, (Ref{fmpz_mat}, Ref{fmpz_mat}), A, d)
+    ccall((:fmpz_mat_gram, libflint), Nothing, (Ref{ZZMatrix}, Ref{ZZMatrix}), A, d)
     shift!(A, -prec)
     O.minkowski_gram_mat_scaled = (A, prec)
     A = deepcopy(A)
@@ -480,7 +480,7 @@ function minkowski_gram_mat_scaled(B::Vector{T}, prec::Int = 64) where T <: NumF
   d = zero_matrix(FlintZZ, length(B), absolute_degree(K))
   A = zero_matrix(FlintZZ, length(B), length(B))
   round_scale!(d, c, prec)
-  ccall((:fmpz_mat_gram, libflint), Nothing, (Ref{fmpz_mat}, Ref{fmpz_mat}), A, d)
+  ccall((:fmpz_mat_gram, libflint), Nothing, (Ref{ZZMatrix}, Ref{ZZMatrix}), A, d)
   shift!(A, -prec)
   return A
 end
@@ -505,9 +505,9 @@ function _check_elem_in_order(a::T, O::NfAbsOrd{S, T},
     return isone(t.den)
   elseif short == Val{false}
     if !isone(t.den)
-      return false, Vector{fmpz}()
+      return false, Vector{ZZRingElem}()
     else
-      v = Vector{fmpz}(undef, degree(O))
+      v = Vector{ZZRingElem}(undef, degree(O))
       for i in 1:degree(O)
         v[i] = t.num[1, i]
       end
@@ -522,7 +522,7 @@ function in(a::NfAbsNSElem, O::NfAbsOrd)
   return _check_elem_in_order(a, O, Val{true})
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     in(a::NumFieldElem, O::NumFieldOrd) -> Bool
 
 Checks whether $a$ lies in $\mathcal O$.
@@ -544,10 +544,10 @@ function in(a::nf_elem, O::NfOrd)
     elem_to_mat_row!(t.num, 1, t.den, a)
     d = mul!(d, d, d2)
     if fits(Int, d)
-      R = ResidueRing(FlintZZ, Int(d), cached = false)
+      R = residue_ring(FlintZZ, Int(d), cached = false)
       return _check_containment(R, M.num, t.num)
     else
-      R1 = ResidueRing(FlintZZ, d, cached = false)
+      R1 = residue_ring(FlintZZ, d, cached = false)
       return _check_containment(R1, M.num, t.num)
     end
   end
@@ -567,8 +567,8 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    denominator(a::nf_elem, O::NfOrd) -> fmpz
+@doc raw"""
+    denominator(a::nf_elem, O::NfOrd) -> ZZRingElem
 
 Returns the smallest positive integer $k$ such that $k \cdot a$ is contained in
 $\mathcal O$.
@@ -582,6 +582,7 @@ end
 
 
 function denominator(a::nf_elem, O::NfOrd)
+  @assert parent(a) == nf(O)
   if is_defining_polynomial_nice(nf(O)) && contains_equation_order(O)
     d = denominator(a)
     if isone(d)
@@ -638,7 +639,7 @@ end
 #
 # TODO: Make this rigorous using interval arithmetic. The only problem is that
 #       the characteristic polynomial might not be squarefree.
-@doc Markdown.doc"""
+@doc raw"""
     norm_change_const(O::NfOrd) -> (Float64, Float64)
 
 Returns $(c_1, c_2) \in \mathbf R_{>0}^2$ such that for all
@@ -671,7 +672,7 @@ function _norm_change_const(v::Vector{nf_elem})
   M = M*transpose(M)
 
   N = Symmetric([ Float64(M[i, j]) for i in 1:nrows(M), j in 1:ncols(M) ])
-  #forcing N to really be Symmetric helps julia - aparently
+  #forcing N to really be Symmetric helps julia - apparently
   if any(!isfinite, N)
     fl1 = true
   else
@@ -731,20 +732,22 @@ end
 #the one WITHOUT K is there for rel-ext, so this is for parity
 
 function Order(a::Vector{T}; check::Bool = true, isbasis::Bool = false,
-               cached::Bool = false) where {T <: NumFieldElem{fmpq}}
+               cached::Bool = false) where {T <: NumFieldElem{QQFieldElem}}
   return Order(parent(a[1]), a, check = check, isbasis = isbasis, cached = cached)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     Order(B::Vector{nf_elem}; check::Bool = true, cached::Bool = true, isbasis::Bool = false) -> NfOrd
     Order(K::AnticNumberField, B::Vector{nf_elem}; check::Bool = true, cached::Bool = true, isbasis::Bool = false) -> NfOrd
 
 Returns the order generated by $B$. If `check` is set, it is checked
-whether $B$ defines an order. If `isbasis` is set, then elements are assumed to form
-a $\mathbf{Z}$-basis.
+whether $B$ defines an order, in particular the integrality of the elements is
+checked by computing minimal polynomials. If `isbasis` is set, then elements are
+assumed to form a $\mathbf{Z}$-basis.
+
 """
 function Order(::S, a::Vector{T}; check::Bool = true, isbasis::Bool = false,
-               cached::Bool = false) where {S <: NumField{fmpq}, T <: NumFieldElem{fmpq}}
+               cached::Bool = false) where {S <: NumField{QQFieldElem}, T <: NumFieldElem{QQFieldElem}}
   K = parent(a[1])
   @assert all(x->K == parent(x), a)
   if isbasis
@@ -774,14 +777,14 @@ function Order(K, a::Vector; check::Bool = true, isbasis::Bool = false,
   return Order(K, b, check = check, cached = cached, isbasis = isbasis)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     Order(K::AnticNumberField, A::FakeFmpqMat; check::Bool = true) -> NfOrd
 
 Returns the order which has basis matrix $A$ with respect to the power basis
 of $K$. If `check` is set, it is checked whether $A$ defines an order.
 """
 function Order(K::S, a::FakeFmpqMat; check::Bool = true,
-               cached::Bool = false) where {S <: NumField{fmpq}}
+               cached::Bool = false) where {S <: NumField{QQFieldElem}}
   if check
     b, ainv, d = defines_order(K, a)
     if !b
@@ -794,26 +797,41 @@ function Order(K::S, a::FakeFmpqMat; check::Bool = true,
   end
 end
 
-@doc Markdown.doc"""
-    Order(K::AnticNumberField, A::fmpq_mat; check::Bool = true) -> NfOrd
+@doc raw"""
+    Order(K::AnticNumberField, A::QQMatrix; check::Bool = true) -> NfOrd
 
 Returns the order which has basis matrix $A$ with respect to the power basis
 of $K$. If `check` is set, it is checked whether $A$ defines an order.
 """
-function Order(K::S, a::fmpq_mat; check::Bool = true,
+function Order(K::S, a::QQMatrix; check::Bool = true,
                cached::Bool = true) where {S <: Union{AnticNumberField, NfAbsNS}}
   return Order(K, FakeFmpqMat(a), cached = cached, check = check)
 end
 
-@doc Markdown.doc"""
-    Order(K::AnticNumberField, A::fmpz_mat, check::Bool = true) -> NfOrd
+@doc raw"""
+    Order(K::AnticNumberField, A::ZZMatrix, check::Bool = true) -> NfOrd
 
 Returns the order which has basis matrix $A$ with respect to the power basis
 of $K$. If `check` is set, it is checked whether $A$ defines an order.
 """
-function Order(K::S, a::fmpz_mat, check::Bool = true,
+function Order(K::S, a::ZZMatrix, check::Bool = true,
                cached::Bool = true) where {S}
   return Order(K, FakeFmpqMat(a), check = check, cached = cached)
+end
+
+################################################################################
+#
+#  Extension of orders
+#
+################################################################################
+
+function extend(O::NfAbsOrd, elts::Vector{T}; check::Bool = true, cached::Bool = true) where {T}
+  # check = true <=> elts[i] is checked to be integral
+  return _order(nf(O), elts; cached = cached, check = check, extends = O)
+end
+
+function extend(O::NfRelOrd, elts::Vector{T}; check::Bool = true, cached::Bool = true) where {T}
+  throw(NotImplemented())
 end
 
 ################################################################################
@@ -831,8 +849,8 @@ end
 #    Decomposition of primes in non-maximal orders,
 #    Acta Arithmetica 120 (2005), 231-244
 #
-@doc Markdown.doc"""
-    any_order(K::NumberField)
+@doc raw"""
+    any_order(K::number_field)
 
 Return some order in $K$. In case the defining polynomial for $K$
 is monic and integral, this just returns the equation order.
@@ -892,13 +910,13 @@ end
 
 equation_order(K, cached::Bool = false) = EquationOrder(K, cached)
 
-@doc Markdown.doc"""
-    EquationOrder(K::NumberField) -> NumFieldOrd
-    equation_order(K::NumberField) -> NumFieldOrd
+@doc raw"""
+    EquationOrder(K::number_field) -> NumFieldOrd
+    equation_order(K::number_field) -> NumFieldOrd
 
 Returns the equation order of the number field $K$.
 """
-function EquationOrder(K::NumField{fmpq}, cached::Bool = true)
+function EquationOrder(K::NumField{QQFieldElem}, cached::Bool = true)
   if cached
     return get_attribute!(K, :equation_order) do
       return __equation_order(K)
@@ -938,55 +956,78 @@ function __equation_order(K::NfAbsNS)
   return z
 end
 
-@doc Markdown.doc"""
-    EquationOrder(f::fmpz_poly; cached::Bool = true, check::Bool = true) -> NfOrd
-    equation_order(f::fmpz_poly; cached::Bool = true, check::Bool = true) -> NfOrd
+@doc raw"""
+    EquationOrder(f::ZZPolyRingElem; cached::Bool = true, check::Bool = true) -> NfOrd
+    equation_order(f::ZZPolyRingElem; cached::Bool = true, check::Bool = true) -> NfOrd
 
 Returns the equation order defined by the monic polynomial $f$.
 """
-function EquationOrder(f::fmpz_poly; cached::Bool = true, check::Bool = true)
+function EquationOrder(f::ZZPolyRingElem; cached::Bool = true, check::Bool = true)
   is_monic(f) || error("polynomial must be monic")
   K = number_field(f, cached = cached, check = check)[1]
   return EquationOrder(K)
 end
-equation_order(f::fmpz_poly; cached::Bool = true, check::Bool = true) = EquationOrder(f, cached = cached, check = check)
+equation_order(f::ZZPolyRingElem; cached::Bool = true, check::Bool = true) = EquationOrder(f, cached = cached, check = check)
 
-@doc Markdown.doc"""
-    EquationOrder(f::fmpq_poly; cached::Bool = true, check::Bool = true) -> NfOrd
-    equation_order(f::fmpq_poly; cached::Bool = true, check::Bool = true) -> NfOrd
+@doc raw"""
+    EquationOrder(f::QQPolyRingElem; cached::Bool = true, check::Bool = true) -> NfOrd
+    equation_order(f::QQPolyRingElem; cached::Bool = true, check::Bool = true) -> NfOrd
 
 Returns the equation order defined by the monic integral polynomial $f$.
 """
-function EquationOrder(f::fmpq_poly; cached::Bool = true, check::Bool = true)
+function EquationOrder(f::QQPolyRingElem; cached::Bool = true, check::Bool = true)
   is_monic(f) || error("polynomial must be integral and monic")
   isone(denominator(f)) || error("polynomial must be integral and monic")
 
   K = number_field(f, cached = cached, check = check)[1]
   return EquationOrder(K)
 end
-equation_order(f::fmpq_poly; cached::Bool = true, check::Bool = true) = EquationOrder(f, cached = cached, check = check)
+equation_order(f::QQPolyRingElem; cached::Bool = true, check::Bool = true) = EquationOrder(f, cached = cached, check = check)
 
-@doc Markdown.doc"""
+@doc raw"""
     equation_order(M::NfOrd) -> NfOrd
 
 The equation order of the number field.
 """
 equation_order(M::NfAbsOrd) = equation_order(nf(M))
 
-
-function _order(K::S, elt::Vector{T}; cached::Bool = true, check::Bool = true) where {S <: NumField{fmpq}, T}
+function _order(K::S, elt::Vector{T}; cached::Bool = true, check::Bool = true, extends = nothing) where {S <: NumField{QQFieldElem}, T}
+  #=
+    check == true: the elements are known to be integral
+    extends !== nothing: then extends is an order, which we are extending
+  =#
   n = degree(K)
 
-  bas = elem_type(K)[one(K)]
-  phase = 1
+  extending = false
+
   local B::FakeFmpqMat = FakeFmpqMat()
 
-  for e = elt
+  if extends !== nothing
+    extended_order::order_type(K) = extends
+    @assert K === nf(extended_order)
+    extend = true
+
+    if is_maximal_known_and_maximal(extended_order) || length(elt) == 0
+      return extended_order
+    end
+    #in this case we can start with phase 2 directly as we have mult. closed
+    #module to start with, so set everything up for it...
+    B = basis_matrix(extended_order)
+    bas = basis(extended_order, K)
+    phase = 2
+  else
+    bas = elem_type(K)[one(K)]
+    phase = 1
+  end
+
+
+  for e in elt
+#    @show findall(isequal(e), elt)
     if phase == 2
       if denominator(B) % denominator(e) == 0
         C = basis_matrix([e], FakeFmpqMat)
         fl, _ = can_solve_with_solution(B.num, div(B.den, denominator(e))*C.num, side = :left)
-#        fl && println("elt known:", e)
+#        fl && println("elt known:", :e)
         fl && continue
       end
     end
@@ -1000,19 +1041,31 @@ function _order(K::S, elt::Vector{T}; cached::Bool = true, check::Bool = true) w
     f = one(K)
     for i=1:df
       mul!(f, f, e)
-      if phase == 2
+      if phase == 2 # don't understand this part
         if denominator(B) % denominator(f) == 0
           C = basis_matrix(elem_type(K)[f], FakeFmpqMat)
           fl = is_zero_mod_hnf!(div(B.den, denominator(f))*C.num, B.num)
-#          fl && println("inner abort: ", e, " ^ ", i)
+#          fl && println("inner abort: ", :e, " ^ ", i)
           fl && break
         end
       end
-      b = elem_type(K)[e*x for x in bas]
-      append!(bas, b)
+      if phase == 1
+        # [1] -> [1, e] -> [1, e, e, e^2] -> ... otherwise
+        push!(bas, copy(f))
+      else
+        b = elem_type(K)[e*x for x in bas]
+        append!(bas, b)
+      end
       if length(bas) >= n
         B = basis_matrix(bas, FakeFmpqMat)
-        hnf!(B)
+        if extending
+          # We are extending extended_order, which has basis matrix M/d
+          # Thus we know that B.den/d * M \subseteq <B.num>
+          # So we can take B.den/d * largest_elementary_divisor(M) as the modulus
+          B = hnf_modular_eldiv(B, B.den, shape = :lowerleft)
+        else
+          hnf!(B)
+        end
         rk = nrows(B) - n + 1
         while is_zero_row(B, rk)
           rk += 1
@@ -1027,7 +1080,8 @@ function _order(K::S, elt::Vector{T}; cached::Bool = true, check::Bool = true) w
     end
   end
 
-  if length(bas) >= n
+  if length(bas) > n # == n can only happen here after an hnf was computed
+                     # above. Don't quite see how > n can happen here either
     B = basis_matrix(bas, FakeFmpqMat)
     hnf!(B)
     rk = nrows(B) - n + 1
@@ -1069,7 +1123,7 @@ function ==(R::NfAbsOrd, S::NfAbsOrd)
   return hnf(R.basis_matrix) == hnf(S.basis_matrix)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     is_contained(R::NfAbsOrd, S::NfAbsOrd) -> Bool
 
 Checks if $R$ is contained in $S$.
@@ -1088,8 +1142,8 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    trace_matrix(O::NfAbsOrd) -> fmpz_mat
+@doc raw"""
+    trace_matrix(O::NfAbsOrd) -> ZZMatrix
 
 Returns the trace matrix of $\mathcal O$, that is, the matrix
 $(\operatorname{tr}_{K/\mathbf Q}(b_i \cdot b_j))_{1 \leq i, j \leq d}$.
@@ -1134,7 +1188,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     +(R::NfOrd, S::NfOrd) -> NfOrd
 
 Given two orders $R$, $S$ of $K$, this function returns the smallest order
@@ -1158,7 +1212,7 @@ end
 #
 ################################################################################
 
-function sum_as_Z_modules(O1, O2, z::fmpz_mat = zero_matrix(FlintZZ, 2 * degree(O1), degree(O1)))
+function sum_as_Z_modules(O1, O2, z::ZZMatrix = zero_matrix(FlintZZ, 2 * degree(O1), degree(O1)))
   if contains_equation_order(O1) && contains_equation_order(O2)
     return sum_as_Z_modules_fast(O1, O2, z)
   else
@@ -1166,7 +1220,7 @@ function sum_as_Z_modules(O1, O2, z::fmpz_mat = zero_matrix(FlintZZ, 2 * degree(
   end
 end
 
-function sum_as_Z_modules_fast(O1, O2, z::fmpz_mat = zero_matrix(FlintZZ, 2 * degree(O1), degree(O1)))
+function sum_as_Z_modules_fast(O1, O2, z::ZZMatrix = zero_matrix(FlintZZ, 2 * degree(O1), degree(O1)))
   @hassert :NfOrd 1 contains_equation_order(O1)
   @hassert :NfOrd 1 contains_equation_order(O2)
   K = _algebra(O1)
@@ -1187,7 +1241,7 @@ function sum_as_Z_modules_fast(O1, O2, z::fmpz_mat = zero_matrix(FlintZZ, 2 * de
   if OK isa NfOrd
     OK.primesofmaximality = union(O1.primesofmaximality, O2.primesofmaximality)
   end
-  OK.index = divexact(denominator(M)^d, prod(fmpz[M.num[i, i] for i in 1:d]))
+  OK.index = divexact(denominator(M)^d, prod(ZZRingElem[M.num[i, i] for i in 1:d]))
   @hassert :NfOrd 1 numerator(gen_index(OK)) == OK.index
   OK.disc = divexact(discriminant(O1) * index(O1)^2, OK.index^2)
   @hassert :NfOrd 1 det(trace_matrix(OK)) == OK.disc
@@ -1233,7 +1287,7 @@ function defines_order(K::S, x::FakeFmpqMat) where {S}
     end
     Ml = basis_matrix(l, FakeFmpqMat)
     dd = Ml.den*xinv.den
-    R = ResidueRing(FlintZZ, dd, cached = false)
+    R = residue_ring(FlintZZ, dd, cached = false)
     #if !isone((Ml * xinv).den)
     if !iszero(map_entries(R, Ml.num)*map_entries(R, xinv.num))
       return false, x, Vector{elem_type(K)}()
@@ -1263,7 +1317,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     different(x::NfAbsOrdElem) -> NfOrdElem
 
 The different of $x$, i.e. $0$ if $x$ is not a primitive element, or
@@ -1280,10 +1334,10 @@ function different(x::NfAbsOrdElem)
   return derivative(f)(x)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     different(R::NfAbsOrd) -> NfAbsOrdIdl
 
-The differnt ideal of $R$, that is, the ideal generated by all differents
+The different ideal of $R$, that is, the ideal generated by all differents
 of elements in $R$.
 For Gorenstein orders, this is also the inverse ideal of the co-different.
 """
@@ -1316,7 +1370,7 @@ function different(R::NfAbsOrd; proof::Bool = true)
   return D
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     discriminant(m::Map, R::NfOrd) -> NfOrdIdl
 
 The discriminant ideal of $R$ over the maximal order of the domain of the map $m$,
@@ -1330,7 +1384,7 @@ function discriminant(m::T, R::NfOrd) where T <: Map
   return norm(m, D)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     codifferent(R::NfAbsOrd) -> NfOrdIdl
 
 The codifferent ideal of $R$, i.e. the trace-dual of $R$.
@@ -1338,7 +1392,19 @@ The codifferent ideal of $R$, i.e. the trace-dual of $R$.
 function codifferent(R::NfAbsOrd)
   t = trace_matrix(R)
   ti, d = pseudo_inv(t)
-  return ideal(R, ti, true)//d
+  #= if d = |det(t)|, then snf(t) = U S V for unimodular U, V and S being 
+     Smith, then (ti/d) = V^-1 S^-1 U^-1 and
+     d*S^-1 is the Smith of ti - up to that the diagonal would need to be
+     reversed. Hence d is a multiple of the largest elem. div.
+     so use it!
+  =#
+  d = abs(d)
+#  I = ideal(R, deepcopy(ti))//d  #should probably be false, true
+  hnf_modular_eldiv!(ti, d, :lowerleft)
+  J = ideal(R, ti, true, true)//d  #should probably be false, true
+                                   #so don't check, but is in hnf
+#  @assert I == J
+  return J
 end
 
 trace_dual(R::NfAbsOrd) = codifferent(R)
@@ -1351,7 +1417,7 @@ trace_dual(R::NfAbsOrd) = codifferent(R)
 
 # TODO: This can be improved by building the matrix N more clever and using
 #       a modular HNF algorithm.
-@doc Markdown.doc"""
+@doc raw"""
     conductor(R::NfOrd, S::NfOrd) -> NfAbsOrdIdl
 
 The conductor $\{x \in R | xS\subseteq R\}$
@@ -1382,7 +1448,7 @@ function conductor(R::NfOrd, S::NfOrd)
   return ideal(R, divexact(Hinv, new_den))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     conductor(R::NfOrd) -> NfAbsOrdIdl
 
 The conductor of $R$ in the maximal order.

@@ -39,10 +39,10 @@ function (K::AnticNumberField)(a::AbsAlgAssElem{nf_elem})
     end
   end
 
-  throw(error("Not an element of the base field"))
+  error("Not an element of the base field")
 end
 
-function (K::FlintRationalField)(a::AbsAlgAssElem{fmpq})
+function (K::QQField)(a::AbsAlgAssElem{QQFieldElem})
   @assert K == base_ring(parent(a))
   @assert has_one(parent(a))
   o = one(parent(a))
@@ -61,7 +61,7 @@ function (K::FlintRationalField)(a::AbsAlgAssElem{fmpq})
     end
   end
 
-  throw(error("Not an element of the base field"))
+  error("Not an element of the base field")
 end
 
 
@@ -101,7 +101,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     is_integral(a::AbsAlgAssElem) -> Bool
 
 Returns `true` if $a$ is integral and `false` otherwise.
@@ -272,7 +272,7 @@ end
 
 mul!(c::AbsAlgAssElem{T}, a::T, b::AbsAlgAssElem{T}) where {T} = mul!(c, b, a)
 
-function mul!(c::AbsAlgAssElem{T}, a::AbsAlgAssElem{T}, b::Union{ Int, fmpz }) where {T}
+function mul!(c::AbsAlgAssElem{T}, a::AbsAlgAssElem{T}, b::Union{ Int, ZZRingElem }) where {T}
   parent(a) != parent(c) && error("Parents don't match.")
 
   if c === a
@@ -281,7 +281,7 @@ function mul!(c::AbsAlgAssElem{T}, a::AbsAlgAssElem{T}, b::Union{ Int, fmpz }) w
     return d
   end
 
-  bfmpq = fmpq(b, 1)
+  bfmpq = QQFieldElem(b, 1)
   for i = 1:dim(parent(a))
     c.coeffs[i] = mul!(coefficients(c, copy = false)[i], coefficients(a, copy = false)[i], bfmpq)
   end
@@ -292,7 +292,7 @@ function mul!(c::AbsAlgAssElem{T}, a::AbsAlgAssElem{T}, b::Union{ Int, fmpz }) w
   return c
 end
 
-mul!(c::AbsAlgAssElem{T}, a::Union{ Int, fmpz }, b::AbsAlgAssElem{T}) where {T} = mul!(c, b, a)
+mul!(c::AbsAlgAssElem{T}, a::Union{ Int, ZZRingElem }, b::AbsAlgAssElem{T}) where {T} = mul!(c, b, a)
 
 function mul!(c::AlgGrpElem{T, S}, a::AlgGrpElem{T, S}, b::AlgGrpElem{T, S}) where {T, S}
   parent(a) != parent(b) && error("Parents don't match.")
@@ -385,7 +385,7 @@ end
 ################################################################################
 
 # Tries to compute a/b if action is :right and b\a if action is :left
-@doc Markdown.doc"""
+@doc raw"""
     is_divisible(a::AbsAlgAssElem, b::AbsAlgAssElem, action::Symbol)
       -> Bool, AbsAlgAssElem
 
@@ -416,19 +416,19 @@ end
 function divexact(a::AbsAlgAssElem, b::AbsAlgAssElem, action::Symbol = :left)
   t, c = is_divisible(a, b, action)
   if !t
-    error("Divison not possible")
+    error("Division not possible")
   end
   return c
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     divexact_right(a::AbsAlgAssElem, b::AbsAlgAssElem) -> AbsAlgAssElem
 
 Returns an element $c$ such that $a = c \cdot b$.
 """
 divexact_right(a::AbsAlgAssElem, b::AbsAlgAssElem) = divexact(a, b, :right)
 
-@doc Markdown.doc"""
+@doc raw"""
     divexact_left(a::AbsAlgAssElem, b::AbsAlgAssElem) -> AbsAlgAssElem
 
 Returns an element $c$ such that $a = b \cdot c$.
@@ -445,25 +445,25 @@ function *(a::AbsAlgAssElem{S}, b::S) where {S <: RingElem}
   return typeof(a)(parent(a), coefficients(a, copy = false).* Ref(b))
 end
 
-*(b::S, a::AbsAlgAssElem{S}) where {S <: RingElem } = a*b
+*(b::S, a::AbsAlgAssElem{S}) where {S <: RingElem} = a*b
 
-*(a::AbsAlgAssElem{T}, b::Integer) where {T} = a*base_ring(parent(a))(b)
+*(a::AbsAlgAssElem{T}, b::Integer) where {T <: RingElem} = a*base_ring(parent(a))(b)
 
-*(b::Integer, a::AbsAlgAssElem{T}) where {T} = a*b
+*(b::Integer, a::AbsAlgAssElem{T}) where {T <: RingElem} = a*b
 
 dot(a::AbsAlgAssElem{T}, b::T) where {T <: RingElem} = a*b
 
 dot(b::T, a::AbsAlgAssElem{T}) where {T <: RingElem} = b*a
 
-dot(a::AbsAlgAssElem{T}, b::Integer) where {T} = a*b
+dot(a::AbsAlgAssElem{T}, b::Integer) where {T <: RingElem} = a*b
 
-dot(b::Integer, a::AbsAlgAssElem{T}) where {T} = b*a
+dot(b::Integer, a::AbsAlgAssElem{T}) where {T <: RingElem} = b*a
 
-dot(a::AbsAlgAssElem{T}, b::fmpz) where {T} = a*b
+dot(a::AbsAlgAssElem{T}, b::ZZRingElem) where {T <: RingElem} = a*b
 
-dot(b::fmpz, a::AbsAlgAssElem{T}) where {T} = b*a
+dot(b::ZZRingElem, a::AbsAlgAssElem{T}) where {T <: RingElem} = b*a
 
-function dot(c::Vector{T}, V::Vector{AlgAssElem{T, AlgAss{T}}}) where T <: Generic.ResF{S} where S <: Union{Int, fmpz}
+function dot(c::Vector{T}, V::Vector{AlgAssElem{T, AlgAss{T}}}) where T <: Generic.ResidueFieldElem{S} where S <: Union{Int, ZZRingElem}
   @assert length(c) == length(V)
   A = parent(V[1])
   res = zero(A)
@@ -475,7 +475,7 @@ function dot(c::Vector{T}, V::Vector{AlgAssElem{T, AlgAss{T}}}) where T <: Gener
   return res
 end
 
-function dot(c::Vector{gfp_elem}, V::Vector{AlgAssElem{gfp_elem, AlgAss{gfp_elem}}})
+function dot(c::Vector{fpFieldElem}, V::Vector{AlgAssElem{fpFieldElem, AlgAss{fpFieldElem}}})
   @assert length(c) == length(V)
   A = parent(V[1])
   res = zero(A)
@@ -493,14 +493,14 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     is_invertible(a::AbsAlgAssElem) -> Bool, AbsAlgAssElem
 
 Returns `true` and $a^{-1}$ if $a$ is a unit and `false` and $0$ otherwise.
 """
 is_invertible(a::AbsAlgAssElem) = is_divisible(one(parent(a)), a, :right)
 
-@doc Markdown.doc"""
+@doc raw"""
     inv(a::AbsAlgAssElem) -> AbsAlgAssElem
 
 Assuming $a$ is a unit this function returns $a^{-1}$.
@@ -546,7 +546,7 @@ function ^(a::AbsAlgAssElem, b::Int)
   end
 end
 
-function ^(a::AbsAlgAssElem, b::fmpz)
+function ^(a::AbsAlgAssElem, b::ZZRingElem)
   if fits(Int, b)
     return a^Int(b)
   end
@@ -635,15 +635,19 @@ end
 # For polynomial substitution
 for T in subtypes(AbsAlgAss)
   @eval begin
-    function (A::$T)(a::Union{Integer, fmpz, Rational{<: Integer}})
+    function (A::$T)(a::Union{Integer, ZZRingElem, Rational{<: Integer}})
       return A(base_ring(A)(a))
     end
 
-    function (A::$T{S})(a::S) where {S}
-      return a*one(A)
-    end
+    #function (A::$T{S})(a::S) where {S <: RingElem}
+    #  return a*one(A)
+    #end
   end
 end
+
+(A::AbsAlgAss{T})(x::T) where {T <: RingElem} = x * one(A)
+
+(A::AbsAlgAss{T})(x::T) where {T <: AlgAssElem} = x * one(A)
 
 ################################################################################
 #
@@ -709,7 +713,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     minpoly(a::AbsAlgAssElem) -> PolyElem
 
 Returns the minimal polynomial of $a$ as a polynomial over
@@ -717,11 +721,16 @@ Returns the minimal polynomial of $a$ as a polynomial over
 """
 function Generic.minpoly(a::AbsAlgAssElem)
   M = representation_matrix(a)
-  R = PolynomialRing(base_ring(parent(a)), "x", cached=false)[1]
+  R = polynomial_ring(base_ring(parent(a)), "x", cached=false)[1]
+  return minpoly(R, a)
+end
+
+function Generic.minpoly(R::PolyRing, a::AbsAlgAssElem)
+  M = representation_matrix(a)
   return minpoly(R, M)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     charpoly(a::AbsAlgAssElem) -> PolyElem
 
 Returns the characteristic polynomial of $a$ as a polynomial over
@@ -729,7 +738,7 @@ Returns the characteristic polynomial of $a$ as a polynomial over
 """
 function charpoly(a::AbsAlgAssElem)
   M = representation_matrix(a)
-  R = PolynomialRing(base_ring(parent(a)), "x", cached = false)[1]
+  R = polynomial_ring(base_ring(parent(a)), "x", cached = false)[1]
   return charpoly(R, M)
 end
 
@@ -763,7 +772,7 @@ function _reduced_charpoly_simple(a::AbsAlgAssElem, R::PolyRing)
   return g
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     reduced_charpoly(a::AbsAlgAssElem) -> PolyElem
 
 Returns the reduced characteristic polynomial of $a$ as a polynomial over
@@ -771,7 +780,7 @@ Returns the reduced characteristic polynomial of $a$ as a polynomial over
 """
 function reduced_charpoly(a::AbsAlgAssElem)
   A = parent(a)
-  R = PolynomialRing(base_ring(A), "x", cached = false)[1]
+  R = polynomial_ring(base_ring(A), "x", cached = false)[1]
   W = decompose(A)
   f = one(R)
   for (B, BtoA) in W
@@ -789,7 +798,7 @@ end
 function elem_to_mat_row!(M::MatElem{T}, i::Int, a::AbsAlgAssElem{T}) where T
   ca = coefficients(a, copy = false)
   for c = 1:ncols(M)
-    if M isa fmpq_mat
+    if M isa QQMatrix
       M[i, c] = ca[c]
     else
       M[i, c] = deepcopy(ca[c])
@@ -806,7 +815,7 @@ function elem_from_mat_row(A::AbsAlgAss{T}, M::MatElem{T}, i::Int) where T
   return a
 end
 
-function elem_to_mat_row!(x::fmpz_mat, i::Int, d::fmpz, a::AbsAlgAssElem{fmpq})
+function elem_to_mat_row!(x::ZZMatrix, i::Int, d::ZZRingElem, a::AbsAlgAssElem{QQFieldElem})
   z = zero_matrix(FlintQQ, 1, ncols(x))
   elem_to_mat_row!(z, 1, a)
   z_q = FakeFmpqMat(z)
@@ -815,19 +824,19 @@ function elem_to_mat_row!(x::fmpz_mat, i::Int, d::fmpz, a::AbsAlgAssElem{fmpq})
     x[i, j] = z_q.num[1, j]
   end
 
-  ccall((:fmpz_set, libflint), Nothing, (Ref{fmpz}, Ref{fmpz}), d, z_q.den)
+  ccall((:fmpz_set, libflint), Nothing, (Ref{ZZRingElem}, Ref{ZZRingElem}), d, z_q.den)
   return nothing
 end
 
-function elem_from_mat_row(A::AbsAlgAss{fmpq}, M::fmpz_mat, i::Int, d::fmpz = fmpz(1))
+function elem_from_mat_row(A::AbsAlgAss{QQFieldElem}, M::ZZMatrix, i::Int, d::ZZRingElem = ZZRingElem(1))
   a = A()
   for j in 1:ncols(M)
-    a.coeffs[j] = fmpq(M[i, j], d)
+    a.coeffs[j] = QQFieldElem(M[i, j], d)
   end
   return a
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     representation_matrix(a::AbsAlgAssElem, action::Symbol = :left) -> MatElem
 
 Returns a matrix over `base_ring(algebra(a))` representing multiplication with
@@ -858,7 +867,7 @@ function representation_matrix(a::AlgGrpElem, action::Symbol=:left)
   return M
 end
 
-_set_to_copy!(M::fmpq_mat, i, j, c) = M[i, j] = c
+_set_to_copy!(M::QQMatrix, i, j, c) = M[i, j] = c
 
 _set_to_copy!(M, i, j, c) = M[i, j] = deepcopy(c)
 
@@ -866,9 +875,9 @@ function _addmul!(M::MatrixElem, i, j, b, c)
   return M[i, j] = addmul!(M[i, j], b, c)
 end
 
-function _addmul!(M::fmpq_mat, i, j, a::fmpq, b::fmpq)
-  c = ccall((:fmpq_mat_entry, libflint), Ptr{fmpq}, (Ref{fmpq_mat}, Int, Int), M, i - 1, j - 1)
-  ccall((:fmpq_addmul, libflint), Nothing, (Ptr{fmpq}, Ref{fmpq}, Ref{fmpq}), c, a, b)
+function _addmul!(M::QQMatrix, i, j, a::QQFieldElem, b::QQFieldElem)
+  c = ccall((:fmpq_mat_entry, libflint), Ptr{QQFieldElem}, (Ref{QQMatrix}, Int, Int), M, i - 1, j - 1)
+  ccall((:fmpq_addmul, libflint), Nothing, (Ptr{QQFieldElem}, Ref{QQFieldElem}, Ref{QQFieldElem}), c, a, b)
 end
 
 function representation_matrix!(a::Union{AlgAssElem, AlgMatElem}, M::MatElem, action::Symbol = :left)
@@ -935,7 +944,7 @@ end
 #  return tr(representation_matrix(x))
 #end
 
-@doc Markdown.doc"""
+@doc raw"""
     tr(x::AbsAlgAssElem{T}) where T -> T
 
 Returns the trace of $x$.
@@ -954,7 +963,7 @@ end
 #  return trace(representation_matrix(x))
 #end
 
-@doc Markdown.doc"""
+@doc raw"""
     trred(x::AbsAlgAssElem{T}) where T -> T
 
 Returns the reduced trace of $x$.
@@ -983,12 +992,12 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     norm(x::AbsAlgAssElem{T}) where T -> T
 
 Returns the norm of $x$.
 """
-function norm(a::AbsAlgAssElem{fmpq})
+function norm(a::AbsAlgAssElem{QQFieldElem})
   return abs(det(representation_matrix(a)))
 end
 
@@ -996,7 +1005,7 @@ function norm(a::AbsAlgAssElem)
   return det(representation_matrix(a))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     normred(x::AbsAlgAssElem{T}) where T -> T
 
 Returns the reduced norm of $x$.
@@ -1055,13 +1064,13 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     trred_matrix(A::Vector{ <: AlgAssElem}) -> MatElem
 
 Returns a matrix $M$ such that $M_{ij} = \mathrm{tr}(A_i \cdot A_j)$ where
 $\mathrm{tr}$ is the reduced trace.
 """
-function trred_matrix(A::Vector{<: AlgAssElem})
+function trred_matrix(A::Vector{<: AbsAlgAssElem})
   n = length(A)
   n == 0 && error("Array must be non-empty")
   K = base_ring(parent(A[1]))
@@ -1080,7 +1089,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     coefficients(a::AbsAlgAbsElem; copy::Bool = true) -> Vector{RingElem}
 
 Returns the coefficients of $a$ in the basis of `algebra(a)`.

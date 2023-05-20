@@ -1,7 +1,7 @@
 export completion, qAdicConj
 
 #XXX: valuation(Q(0)) == 0 !!!!!
-function newton_lift(f::fmpz_poly, r::qadic, prec::Int = parent(r).prec_max, starting_prec::Int = 2)
+function newton_lift(f::ZZPolyRingElem, r::qadic, prec::Int = parent(r).prec_max, starting_prec::Int = 2)
   Q = parent(r)
   n = prec
   i = n
@@ -36,7 +36,7 @@ function newton_lift(f::fmpz_poly, r::qadic, prec::Int = parent(r).prec_max, sta
   return r
 end
 
-function newton_lift(f::fmpz_poly, r::LocalFieldElem, precision::Int = parent(r).prec_max, starting_prec::Int = 2)
+function newton_lift(f::ZZPolyRingElem, r::LocalFieldElem, precision::Int = parent(r).prec_max, starting_prec::Int = 2)
   Q = parent(r)
   n = precision
   i = n
@@ -68,13 +68,13 @@ function newton_lift(f::fmpz_poly, r::LocalFieldElem, precision::Int = parent(r)
   return r
 end
 
-@doc Markdown.doc"""
-    roots(f::fmpz_poly, Q::FlintQadicField; max_roots::Int = degree(f)) -> Vector{qadic}
+@doc raw"""
+    roots(f::ZZPolyRingElem, Q::FlintQadicField; max_roots::Int = degree(f)) -> Vector{qadic}
 
 The roots of $f$ in $Q$, $f$ has to be square-free (at least the roots have to be simple roots).
 """
-function roots(f::fmpz_poly, Q::FlintQadicField; max_roots::Int = degree(f))
-  k, mk = ResidueField(Q)
+function roots(f::ZZPolyRingElem, Q::FlintQadicField; max_roots::Int = degree(f))
+  k, mk = residue_field(Q)
   rt = roots(f, k)
   RT = qadic[]
   for r = rt
@@ -114,7 +114,7 @@ function roots(C::qAdicRootCtx, n::Int = 10)
   return rt
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     qAdicConj(K::AnticNumberField, p::Int)
 
 Creates a data structure to compute the conjugates in an unramified splitting field
@@ -126,7 +126,7 @@ mutable struct qAdicConj
   cache::Dict{nf_elem, Any}
 
   function qAdicConj(K::AnticNumberField, p::Int; splitting_field::Bool = false)
-    if discriminant(map_coefficients(GF(p), K.pol)) == 0
+    if discriminant(map_coefficients(Native.GF(p), K.pol)) == 0
       error("cannot deal with difficult primes yet")
     end
     #=
@@ -134,7 +134,7 @@ mutable struct qAdicConj
     is_ramified(maximal_order(K), p) && error("cannot deal with ramification yet")
     =#
     if splitting_field
-      Zx = PolynomialRing(FlintZZ, cached = false)[1]
+      Zx = polynomial_ring(FlintZZ, cached = false)[1]
       C = qAdicRootCtx(Zx(K.pol), p, splitting_field = true)
       r = new()
       r.C = C
@@ -146,7 +146,7 @@ mutable struct qAdicConj
       return Dict{Int, Tuple{qAdicRootCtx, Dict{nf_elem, Any}}}()
     end::Dict{Int, Tuple{qAdicRootCtx, Dict{nf_elem, Any}}}
     Dp = get!(D, p) do
-      Zx = PolynomialRing(FlintZZ, cached = false)[1]
+      Zx = polynomial_ring(FlintZZ, cached = false)[1]
       d = lcm(map(denominator, coefficients(K.pol)))
       C = qAdicRootCtx(Zx(K.pol*d), p)
       return (C, Dict{nf_elem, Any}())
@@ -164,13 +164,13 @@ end
 #  all = true/ false: only on of a pair of complex conjugates is returned
 #  flat = true/ false: return (Re, Im) or the complex number
 #TODO: not sure how this would work in the ramified, not-normal case.
-@doc Markdown.doc"""
+@doc raw"""
     conjugates(a::nf_elem, C::qAdicConj, n::Int = 10; flat::Bool = false, all:Bool = true) -> []
 
 Returns an array of the $q$-adic conjugates of $a$: Let $p Z_K = \prod P_i$ for the maximal order
 $Z_K$ of the parent of $a$. Then $K \otimes Q_p = \prod K_{P_i}$. For each of the $P_i$
 a $q$-adic (unramifed) extension $K_{P_i}$ of $Q_p$ is computed, sth. $a$ has $\deg P_i = \deg K_{P_i}$
-many cojugates in $K_{P_i}$.
+many conjugates in $K_{P_i}$.
 If `all = true` and `flat = false`, the default, then all $n$ conjugates are returned.
 If `all = false`, then for each $P_i$ only one conjugate is returned, the others could be
 computed using automorphisms (the Frobenius).
@@ -224,7 +224,7 @@ end
 function _conjugates(a::nf_elem, C::qAdicConj, n::Int, op::Function)
   R = roots(C.C, n)
   @assert parent(a) == C.K
-  Zx = PolynomialRing(FlintZZ, cached = false)[1]
+  Zx = polynomial_ring(FlintZZ, cached = false)[1]
   d = denominator(a)
   f = Zx(d*a)
   res = qadic[]
@@ -244,7 +244,7 @@ function _log(a::qadic)
   return log(a*inv(teichmuller(a)))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     conjugates_log(a::nf_elem, C::qAdicConj, n::Int = 10; flat::Bool = false, all:Bool = true) -> []
     conjugates_log(a::FacElem{nf_elem, AnticNumberField}, C::qAdicConj, n::Int = 10; flat::Bool = false, all:Bool = true) -> []
 
@@ -337,7 +337,7 @@ function special_gram(m::Vector{Vector{padic}})
   return [[n[i,j] for j=1:ncols(n)] for i = 1:nrows(n)]
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     regulator(u::Vector{T}, C::qAdicConj, n::Int = 10; flat::Bool = true) where {T<: Union{nf_elem, FacElem{nf_elem, AnticNumberField}}}
     regulator(K::AnticNumberField, C::qAdicConj, n::Int = 10; flat::Bool = true)
     regulator(R::NfAbsOrd, C::qAdicConj, n::Int = 10; flat::Bool = true)
@@ -361,7 +361,7 @@ function regulator(R::NfAbsOrd{AnticNumberField, nf_elem}, C::qAdicConj, n::Int 
   return regulator([mu(u[i]) for i=2:ngens(u)], C, n, flat = flat)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     regulator_iwasawa(u::Vector{T}, C::qAdicConj, n::Int = 10) where {T<: Union{nf_elem, FacElem{nf_elem, AnticNumberField}}} -> qadic
     regulator_iwasawa(K::AnticNumberField, C::qAdicConj, n::Int = 10) -> qadic
     regulator_iwasawa(R::NfAbsOrd, C::qAdicConj, n::Int = 10) -> qadic
@@ -437,9 +437,9 @@ end
 
 struct nf_elem_mod <: RingElem
   a::nf_elem
-  p::fmpz
+  p::ZZRingElem
 end
-function *(a::fmpz, b::nf_elem_mod)
+function *(a::ZZRingElem, b::nf_elem_mod)
   c = a*b.a
   return nf_elem_mod(mod_sym(c, b.p), b.p)
 end
@@ -470,13 +470,13 @@ function ^(a::nf_elem_mod, i::Int)
   end
   return b
 end
-function lift_root(f::fmpz_poly, a::nf_elem, o::nf_elem, p::fmpz, n::Int)
+function lift_root(f::ZZPolyRingElem, a::nf_elem, o::nf_elem, p::ZZRingElem, n::Int)
   #f(a) = 0 mod p, o*f'(a) = 1 mod p, want f(a) = 0 mod p^n
   k = 1
   while k < n
     p *= p
     k *= 2
-    #TODO: here f wil be sparse (and possibly large degree), so
+    #TODO: here f will be sparse (and possibly large degree), so
     #      this evaluation is bad.
     # in the calling cite: don't work in the large field, restrict
     # to working (mod p^k) in the field defined by the factor
@@ -502,16 +502,18 @@ function lift_root(f::fmpz_poly, a::nf_elem, o::nf_elem, p::fmpz, n::Int)
   return a
 end
 
+@doc raw"""
+    completion_easy(K::AnticNumberField, P::NfOrdIdl)
+                                               -> FlintQadicField, CompletionMap
 
-@doc Markdown.doc"""
-    completion(K::AnticNumberField, P::NfOrdIdl) -> FlintQadicField, Map{AnticNumberField -> FlintQadicField}
+The completion of $K$ wrt to the topology induced by the valuation at the
+unramified prime ideal $P$.
 
-The completion of $K$ wrt to the topology induced by the valuation at $P$. $P$ needs
-to be unramifed.
-The map giving the embedding of $K$ into the completion, admits a pointwise pre-image to obtain a lift.
-Note, that the map is not well defined by this data: $K$ will have $\deg P$ many embeddings.
+The map giving the embedding of $K$ into the completion, admits a pointwise
+preimage to obtain a lift.  Note, that the map is not well defined by this
+data: $K$ will have $\deg P$ many embeddings.
 """
-function completion(K::AnticNumberField, P::NfOrdIdl)
+function completion_easy(K::AnticNumberField, P::NfOrdIdl)
   #non-unique!! will have deg(P) many
   p = minimum(P)
   C = qAdicConj(K, Int(p))
@@ -521,15 +523,15 @@ function completion(K::AnticNumberField, P::NfOrdIdl)
   return completion(K, p, i[1])
 end
 
-completion(K::AnticNumberField, p::Integer, i::Int) = completion(K, fmpz(p), i)
+completion(K::AnticNumberField, p::Integer, i::Int) = completion(K, ZZRingElem(p), i)
 
-@doc Markdown.doc"""
-    completion(K::AnticNumberField, p::fmpz, i::Int) -> FlintQadicField, Map
+@doc raw"""
+    completion(K::AnticNumberField, p::ZZRingElem, i::Int) -> FlintQadicField, Map
 
 The completion corresponding to the $i$-th conjugate in the non-canonical ordering of
 `conjugates`.
 """
-function completion(K::AnticNumberField, p::fmpz, i::Int)
+function completion(K::AnticNumberField, p::ZZRingElem, i::Int)
   C = qAdicConj(K, Int(p))
   @assert 0<i<= degree(K)
 
@@ -542,7 +544,7 @@ function completion(K::AnticNumberField, ca::qadic)
   C = qAdicConj(K, Int(p))
   r = roots(C.C, precision(ca))
   i = findfirst(x->parent(r[x]) == parent(ca) && r[x] == ca, 1:length(r))
-  Zx = PolynomialRing(FlintZZ, cached = false)[1]
+  Zx = polynomial_ring(FlintZZ, cached = false)[1]
   function inj(a::nf_elem)
     d = denominator(a)
     pr = precision(parent(ca))
@@ -555,14 +557,14 @@ function completion(K::AnticNumberField, ca::qadic)
   end
   # gen(K) -> conj(a, p)[i] -> a = sum a_i o^i
   # need o = sum o_i a^i
-  R, mR = ResidueField(parent(ca))
+  R, mR = residue_field(parent(ca))
   pa = [one(R), mR(ca)]
   d = degree(R)
   while length(pa) < d
     push!(pa, pa[end]*pa[2])
   end
-  m = matrix(GF(p), d, d, [coeff(pa[i], j-1) for j=1:d for i=1:d])
-  o = matrix(GF(p), d, 1, [coeff(gen(R), j-1) for j=1:d])
+  m = matrix(Native.GF(p), d, d, [coeff(pa[i], j-1) for j=1:d for i=1:d])
+  o = matrix(Native.GF(p), d, 1, [coeff(gen(R), j-1) for j=1:d])
   s = solve(m, o)
   @hassert :qAdic 1 m*s == o
   a = K()
@@ -571,7 +573,7 @@ function completion(K::AnticNumberField, ca::qadic)
   end
   f = defining_polynomial(parent(ca), FlintZZ)
   fso = inv(derivative(f)(gen(R)))
-  o = matrix(GF(p), d, 1, [coeff(fso, j-1) for j=1:d])
+  o = matrix(Native.GF(p), d, 1, [coeff(fso, j-1) for j=1:d])
   s = solve(m, o)
   b = K()
   for i=1:d
@@ -589,7 +591,7 @@ function completion(K::AnticNumberField, ca::qadic)
 #  c = K(parent(K.pol)(cjj))
 
   c = lift_root(f, a, b, p, 10)
-  pc = fmpz(10)
+  pc = ZZRingElem(10)
   function lif(x::qadic)
     if iszero(x)
       return K(0)
@@ -605,7 +607,7 @@ function completion(K::AnticNumberField, ca::qadic)
 #  djj = lift_root(f, ajj, bjj, p, 10)
 #  d = K(parent(K.pol)(djj))
       ccall((:nf_elem_set, libantic), Nothing, (Ref{nf_elem}, Ref{nf_elem}, Ref{AnticNumberField}), c, d, K)
-      ccall((:fmpz_set_si, libflint), Nothing, (Ref{fmpz}, Cint), pc, precision(x))
+      ccall((:fmpz_set_si, libflint), Nothing, (Ref{ZZRingElem}, Cint), pc, precision(x))
     elseif precision(x) < pc
       d = mod_sym(c, p^precision(x))
     else

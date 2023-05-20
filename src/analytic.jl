@@ -65,7 +65,7 @@ function analytic_eval(a::analytic_func{T}, b::T) where T<:Number
   return s
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     dickman_rho(x::Number, prec::Int=55) Number
 
 Evaluates the Dickman-$\rho$ function at $x$.
@@ -87,7 +87,7 @@ function dickman_rho(x::Number, prec::Int=55)
   return analytic_eval(rho_coeff(x, prec), k-x)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     dickman_rho(x::Number, e::UnitRange{Int}, prec::Int=55) Number[]
 
 Evaluates the Dickman-$\rho$ function at $i*x$ for all $i\in e$.
@@ -174,7 +174,7 @@ end
 
 #the function Ei = -integral(-x, infty, exp(-t)/t dt)
 
-@doc Markdown.doc"""
+@doc raw"""
     exponential_integral(x::AbstractFloat) -> AbstractFloat
     ei(x::AbstractFloat) -> AbstractFloat
 
@@ -192,7 +192,7 @@ end
 
 #the function li = integral(0, x, dt/log(t))
 #             li(x) = Ei(log(x)) according to wiki and ?
-@doc Markdown.doc"""
+@doc raw"""
     logarithmic_integral(x::AbstractFloat) AbstractFloat
     li(x::AbstractFloat) AbstractFloat
 
@@ -214,7 +214,7 @@ Chapter IX, Question 18
 The formula (for n=365) is in the solutions.
 =#
 
-@doc Markdown.doc"""
+@doc raw"""
     rels_from_partial(n::Int, k::Int) -> Int
 
 Estimates the number of collisions in $k$ samples among $n$ possibilities. Used
@@ -222,7 +222,7 @@ to estimate the number of full relations to be expected from $k$ partial
 relations involving $n$ (large) primes.
 """
 function rels_from_partial(n::Int, k::Int)
-  N = fmpz(n)
+  N = ZZRingElem(n)
   return Int(round(N*(1-(N-1)^k//N^k-k*(N-1)^(k-1)//N^k)))
 end
 
@@ -241,7 +241,7 @@ Then
 
 #= computes (hopefully) the
   vol(prod x_i <= b meet [0,1]^n)
-an easy excercise in induction...
+an easy exercise in induction...
   vol = b(sum_0^{n-1} (-1)^k/k! log(b)^k)
      b exp(log(1/b)) = 1 very rapidly for n-> infty
 =#
@@ -256,7 +256,7 @@ function vol(n::Int, b::T) where T<:Number
   return b*sum(s)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     psi_guess(x::Number, B::Int) Number
 
 Uses the dickman_rho function to estimate $\psi(x, B)$ the number
@@ -266,7 +266,7 @@ function psi_guess(x::Number, B::Int)
   return x*dickman_rho(log(x)/log(B))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     psi_guess(x::Number, e::UnitRange, B::Int) Number
 
 Uses the dickman_rho function to estimate $\psi(x^i, B)$ the number
@@ -284,12 +284,12 @@ end
 
 
 function class_group_expected(O::NfOrd, B::Integer, samples::Int = 100)
-  d = root(abs(discriminant(O)), 2)
+  d = isqrt(abs(discriminant(O)))
   return class_group_expected(d, degree(O), Int(B), samples)
 end
 
-function class_group_expected(O::NfOrd, B::fmpz, samples::Int = 100)
-  d = root(abs(discriminant(O)), 2)
+function class_group_expected(O::NfOrd, B::ZZRingElem, samples::Int = 100)
+  d = isqrt(abs(discriminant(O)))
   return class_group_expected(d, degree(O), Int(B), samples)
 end
 
@@ -300,13 +300,13 @@ function class_group_expected(c::ClassGrpCtx, samples::Int = 100)
   return class_group_expected(O, B, samples)
 end
 
-function class_group_expected(d::fmpz, deg::Int, B::Int, samples::Int = 100)
+function class_group_expected(d::ZZRingElem, deg::Int, B::Int, samples::Int = 100)
   #d is the norm of elements we can sample, typically, sqrt(disc)
   #B is the factor base bound
   #we want
   # 1/sum (delta(psi)/delta(x)) * delta(vol)
 
-  d = max(d, fmpz(100))
+  d = max(d, ZZRingElem(100))
   d1 = BigFloat(d)
 
   pg = psi_guess(d1^(1/samples), B, 1:samples)
@@ -325,7 +325,7 @@ function class_group_expected(d::fmpz, deg::Int, B::Int, samples::Int = 100)
   end
 end
 
-#= D is supposed to be the disccriminant
+#= D is supposed to be the discriminant
    n the dimension
    B1 the bound for the factor base
    B2 the bound for the large primes
@@ -340,7 +340,7 @@ we expect a norm <= sqrt(D).
 But frequently this is smaller.
 We re-scalee the fundamental epiped to be [0,1]^n and assume the
 norm is still prod x_i (which is "true" for totally real and need
-though otherwise). The we try to cound elements of norm <= l^i
+though otherwise). The we try to count elements of norm <= l^i
 for l^i = 1..sqrt D by assuming the proportion is thus the volume
 of above.
 The dickman_rho or bach_rho functions are then used to estimate the
@@ -357,15 +357,15 @@ tool:
   I assume that comes in part from the distribution of the
   conjugates themselves. They are bounded by 2, but the mean is less...
 
-  The norm is the product of the conjugates. If the cojugates are reasonably
+  The norm is the product of the conjugates. If the conjugates are reasonably
   distributed then the central limit theorem should imply that the norms
-  are normalily distributed.
+  are normally distributed.
 
   Steve's idea is (probably) correct if one samples in the entire lattice,
   represented by taking few elements of a basis and then changing the basis
 =#
 
-function expected_yield(D::fmpz, n::Int, B1::Integer, B2::Integer=0, steps::Int=20)
+function expected_yield(D::ZZRingElem, n::Int, B1::Integer, B2::Integer=0, steps::Int=20)
   lD = log(abs(D))/2
   l = lD/steps
 

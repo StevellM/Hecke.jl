@@ -85,7 +85,7 @@ function is_kernel_polynomial(E::EllCrv{T}, f::PolyElem{T}, check::Bool = false)
   
   #Now we check if the corresponding isogeny factors through some 
   #multiplication by m map.
-  d = fmpz(2*degree(f) + 1)
+  d = ZZRingElem(2*degree(f) + 1)
   n = Hecke.squarefree_part(d)
   m = sqrt(div(d, n))
   
@@ -134,7 +134,7 @@ end
 
 
 
-@doc Markdown.doc"""
+@doc raw"""
     is_prime_cyclic_kernel_polynomial(E::EllCrv, p::IntegerUnion, f::PolyElem)
 
 Return whether `E` has a cyclic isogeny of with kernel polynomial
@@ -162,7 +162,7 @@ function is_prime_cyclic_kernel_polynomial(E::EllCrv, p::IntegerUnion, f::PolyEl
   end
 
   # Quotient ring R[x]/(f)
-  S = ResidueRing(parent(f), f)
+  S = residue_ring(parent(f), f)
   xbar = S(gen(parent(f)))
 
   # Test if the p-division polynomial is a multiple of f by computing it in the quotient:
@@ -178,7 +178,7 @@ function is_prime_cyclic_kernel_polynomial(E::EllCrv, p::IntegerUnion, f::PolyEl
 
   # For each a in a set of generators of (Z/pZ)^*/{1, -1}  we check that the
   # multiplication-by-a map permutes the roots of f.
-  Zp = ResidueRing(ZZ, p)
+  Zp = residue_ring(ZZ, p)
   U, mU = unit_group(Zp)
   Q, UtoQ = quo(U, [mU\(Zp(-1))])
   for g in gens(Q)
@@ -193,7 +193,7 @@ function is_prime_cyclic_kernel_polynomial(E::EllCrv, p::IntegerUnion, f::PolyEl
 end
 
 #Currently only works for kernels do not contain 4-torsion. Kernels need to be checked for correctness. Input polynomial needs to be separable.
-@doc Markdown.doc"""
+@doc raw"""
     isogeny_from_kernel(E::EllCrv, psi::RingElem) -> Isogeny
 
 Compute the isogeny $\phi$: $E$ -> $E'$ where the kernel of $\phi$ contains
@@ -204,7 +204,7 @@ function isogeny_from_kernel(E::EllCrv, psi::RingElem)
 end
 
 #Input polynomial needs to be separable. (2^r-torsion is allowed however)
-@doc Markdown.doc"""
+@doc raw"""
     isogeny_from_kernel_factored(E::EllCrv, psi::RingElem) -> Isogeny
 
 Compute the isogeny $\phi$: $E$ -> $E'$ where the kernel of $\phi$ contains
@@ -255,7 +255,7 @@ function isogeny_from_kernel_factored(E::EllCrv, psi::RingElem)
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     degree(f::Isogeny) -> Int
 
 Return the degree of the isogeny $f$.
@@ -264,7 +264,7 @@ function degree(f::Isogeny)
   return f.degree
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     isogeny_map_psi(f::Isogeny) -> Poly
 
 Return the kernel polynomial defining the isogeny $f$.
@@ -273,7 +273,7 @@ function isogeny_map_psi(f::Isogeny)
   return f.psi
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     isogeny_map_psi_squared(f::Isogeny) -> Poly
 
 Return the denominator of the first coordinate of $f$,
@@ -284,7 +284,7 @@ function isogeny_map_psi_squared(f::Isogeny)
   return denominator(f.coordx)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     isogeny_map_phi(f::Isogeny) -> Poly
 
 Return the polynomial phi defining the isogeny $f$.
@@ -293,7 +293,7 @@ function isogeny_map_phi(f::Isogeny)
   return numerator(f.coordx)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     isogeny_map_omega(f::Isogeny) -> Poly
 
 Return the polynomial omega defining the isogeny $f$.
@@ -302,7 +302,7 @@ function isogeny_map_omega(f::Isogeny)
   return numerator(f.coordy)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     image(phi::Isogeny, P::EllCrvPt) -> EllCrvPt
 
 Return $\phi(P)$.
@@ -325,7 +325,7 @@ function image(f::Isogeny, P::EllCrvPt)
   return codomain(f)([phix, phiy])
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     image(fs::Vector{Isogeny}, P::EllCrvPt) -> EllCrvPt
 
 Return phi_n \circ phi_(n-1) \circ phi_1(P) where fs is a list of compatible
@@ -340,7 +340,7 @@ function image(fs::Vector{Isogeny}, P::EllCrvPt)
   return P
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     push_through_isogeny(f::Isogeny, v::RingElem) -> RingElem
 
 Let $f:E \to E'$ be an isogeny and let S be the set of points on E
@@ -356,7 +356,7 @@ function push_through_isogeny(f::Isogeny, v::RingElem)
 
   phi = isogeny_map_phi(f)
   psi_sq = isogeny_map_psi_squared(f)
-  Rxy, (x,y) = PolynomialRing(base_ring(phi), 2)
+  Rxy, (x,y) = polynomial_ring(base_ring(phi), 2)
   pol1 = phi(x) - psi_sq(x)*y
   pol2 = v(x)
   L = factor(resultant(pol1, pol2, 1))
@@ -365,7 +365,7 @@ end
 
 #TODO Need check that we don't need to compose with an automorphism to get the actual dual. Currently we will get the dual up
 #to automorphism. Also need to carefully see what happens when the curve is supersingular and we compute the dual of frobenius
-@doc Markdown.doc"""
+@doc raw"""
     dual_isogeny(psi::Isogeny) -> Isogeny
 
 Return the dual isogeny of psi. Currently only works for separable isogenies.
@@ -408,8 +408,8 @@ function dual_isogeny(psi::Isogeny)
   return psihat_up_to_auto
 end
 
-#Might need some tweaks in characteristic 2. Also might be inefficent inefficient, but it works.
-@doc Markdown.doc"""
+#Might need some tweaks in characteristic 2. Also might be inefficient inefficient, but it works.
+@doc raw"""
     dual_of_frobenius(psi::Isogeny) -> Isogeny
 
 Return the dual of frobenius.
@@ -444,9 +444,9 @@ function dual_of_frobenius(E)
   #Otherwise it will be a separable isogeny and it suffices to find f and g such that 
   #y^p = = f(x) +y*g(x)
   if supsing
-    yp = lift(ResidueRing(Kxy, y^2 +a1*x*y + a3*y - x^3 - a2*x^2 - a4*x -a6)(y^(p^2)))
+    yp = lift(residue_ring(Kxy, y^2 +a1*x*y + a3*y - x^3 - a2*x^2 - a4*x -a6)(y^(p^2)))
   else
-    yp = lift(ResidueRing(Kxy, y^2 +a1*x*y + a3*y - x^3 - a2*x^2 - a4*x -a6)(y^p))
+    yp = lift(residue_ring(Kxy, y^2 +a1*x*y + a3*y - x^3 - a2*x^2 - a4*x -a6)(y^p))
   end
   
   omega1 = divexact(coefficients(omega)[1], coefficients(yp)[1])
@@ -472,7 +472,7 @@ function dual_of_frobenius(E)
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     identity_isogeny((E::EllCrv) -> Isogeny
 
 Return the isogeny corresponding to the identity map on $E$
@@ -481,12 +481,12 @@ function identity_isogeny(E::EllCrv)
   return isomorphism_to_isogeny(identity_map(E))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     multiplication_by_m_map((E::EllCrv, m::Int) -> Isogeny
 
 Return the isogeny corresponding to the multiplication by m map on $E$
 """
-function multiplication_by_m_map(E::EllCrv, m::S) where S<:Union{Integer, fmpz}
+function multiplication_by_m_map(E::EllCrv, m::S) where S<:Union{Integer, ZZRingElem}
 
   if m==1
     return isomorphism_to_isogeny(identity_map(E))
@@ -499,8 +499,8 @@ function multiplication_by_m_map(E::EllCrv, m::S) where S<:Union{Integer, fmpz}
     return pre_iso * multiplication_by_m_map(F, m) * post_iso
   end
 
-  Kx, x = PolynomialRing(base_field(E), "x")
-  Kxy, y = PolynomialRing(Kx, "y")
+  Kx, x = polynomial_ring(base_field(E), "x")
+  Kxy, y = polynomial_ring(Kx, "y")
 
   mult_mx = multiplication_by_m_numerator(E, m, x)//multiplication_by_m_denominator(E, m, x)
   mult_my = multiplication_by_m_y_coord(E, m)
@@ -549,7 +549,7 @@ function defrobenify(f::RingElem, p, rmax::Int = -1)
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     frobenius_map(E::EllCrv{FinFieldElem}) -> Isogeny
 
 Return the Frobenius map on E.
@@ -558,7 +558,7 @@ function frobenius_map(E::EllCrv{T}) where T<:FinFieldElem
   return frobenius_map(E, 1)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     frobenius_map(E::EllCrv{FinFieldElem}, n::Int) -> Isogeny
 
 Return the $n$-th power of the Frobenius map on E.
@@ -568,8 +568,8 @@ function frobenius_map(E::EllCrv{T}, n) where T<:FinFieldElem
   K = base_field(E)
   p = characteristic(K)
   pn = p^n
-  Rx, x = PolynomialRing(K, "x")
-  Rxy, y = PolynomialRing(Rx, "y")
+  Rx, x = polynomial_ring(K, "x")
+  Rxy, y = polynomial_ring(Rx, "y")
   f.codomain = E
   f.degree = pn
   f.coordx = x^pn//1
@@ -580,7 +580,7 @@ function frobenius_map(E::EllCrv{T}, n) where T<:FinFieldElem
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     rational_maps(I::Isogeny) -> [Poly, Poly]
 
 Return the rational maps defining the isogeny.
@@ -620,7 +620,7 @@ function show(io::IO, f::Isogeny)
   (x : y : 1) -> ($(fx) : $(fy) : 1 )")
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     compose(I1::Isogeny, I2::Isogeny) -> Isogeny
 
 Return composition $I2 \circ I1$.
@@ -680,7 +680,7 @@ function compose(I1::Isogeny, I2::Isogeny)
   return f
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     compose(fs::Vector{Isogeny}) -> Isogeny
 
 Return the composition phi_n \circ phi_(n-1) \circ phi_1 where fs is a list of compatible
@@ -705,7 +705,7 @@ function ^(phi::Isogeny, n::Int)
   return res
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     is_isogenous(E::EllCrv, F::EllCrv) -> Bool
 
 Return true when $E$ and $F$ are isogenous. Currently only implemented for
@@ -756,7 +756,7 @@ function even_kernel_polynomial(E::EllCrv, psi_G)
   char = characteristic(K)
 
 
-  Kxy,y = PolynomialRing(R,"y")
+  Kxy,y = polynomial_ring(R,"y")
 
 
   a1, a2, a3, a4, a6 = a_invars(E)
@@ -818,7 +818,7 @@ function odd_kernel_polynomial(E, psi)
   R = parent(psi)
   x = gen(R)
 
-  Rxy,y = PolynomialRing(R,"y")
+  Rxy,y = polynomial_ring(R,"y")
   psi_2 = 2*y + a1*x + a3
 
   psicoeffs = coefficients(psi)
@@ -886,7 +886,7 @@ function to_bivariate(f::AbstractAlgebra.Generic.Poly{S}) where S<:PolyElem{T} w
   Rx = base_ring(Rxy)
   R = base_ring(Rx)
 
-  Kxy, (x, y) = PolynomialRing(R, ["x","y"])
+  Kxy, (x, y) = polynomial_ring(R, ["x","y"])
   cx = coefficients(f)
   
   newf = zero(Kxy)
@@ -901,7 +901,7 @@ function to_bivariate(f::PolyElem{T}) where T<:FieldElem
 
   K = base_ring(f)
   
-  Kxy, (x, y) = PolynomialRing(K, ["x","y"])
+  Kxy, (x, y) = polynomial_ring(K, ["x","y"])
   
   return f(x)
 end

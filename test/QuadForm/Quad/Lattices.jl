@@ -4,7 +4,7 @@
   # Constructors
   #
 
-  Qx, x = PolynomialRing(FlintQQ, "x", cached = false)
+  Qx, x = polynomial_ring(FlintQQ, "x", cached = false)
   f = x - 1;
   K, a = number_field(f, "a", cached = false)
   D = matrix(K, 3, 3, [4, 0, 0, 0, 10, 0, 0, 0, 20]);
@@ -15,7 +15,8 @@
   @test pseudo_matrix(L1) == pseudo_matrix(L)
   @test ambient_space(L1) != ambient_space(L)
 
-  LL,i,j = orthogonal_sum(L1,L1)
+  LL, inj = direct_sum(L1,L1)
+  i, j = inj
   @inferred i(L1)
   @test i(L1)+j(L1) == LL
 

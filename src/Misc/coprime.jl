@@ -1,15 +1,15 @@
 import Nemo.isone, Nemo.divexact, Base.copy
 export divexact!, gcd_into!, coprime_base, coprime_base_insert
 
-function divexact!(a::fmpz, b::fmpz)
+function divexact!(a::ZZRingElem, b::ZZRingElem)
   ccall((:fmpz_divexact, libflint), Nothing,
-          (Ref{fmpz}, Ref{fmpz}, Ref{fmpz}), a, a, b)
+          (Ref{ZZRingElem}, Ref{ZZRingElem}, Ref{ZZRingElem}), a, a, b)
   return a
 end
 
-function gcd_into!(a::fmpz, b::fmpz, c::fmpz)
+function gcd_into!(a::ZZRingElem, b::ZZRingElem, c::ZZRingElem)
   ccall((:fmpz_gcd, libflint), Nothing,
-          (Ref{fmpz}, Ref{fmpz}, Ref{fmpz}), a, b, c)
+          (Ref{ZZRingElem}, Ref{ZZRingElem}, Ref{ZZRingElem}), a, b, c)
   return a
 end
 
@@ -21,12 +21,12 @@ function mul_into!(a::T, b::T, c::T) where T
   return (b*c)::T
 end
 
-function mul_into!(a::fmpz, b::fmpz, c::fmpz)
+function mul_into!(a::ZZRingElem, b::ZZRingElem, c::ZZRingElem)
   mul!(a, b, c)
   return a
 end
 
-function copy(a::fmpz)
+function copy(a::ZZRingElem)
   return deepcopy(a)
 end
 
@@ -34,22 +34,22 @@ function copy_into!(a, b)
   return b
 end
 
-function copy_into!(a::MPolyElem, b::MPolyElem)
+function copy_into!(a::MPolyRingElem, b::MPolyRingElem)
   return copy(b)
 end
 
-function copy_into!(a::fmpz, b::fmpz)
-  ccall((:fmpz_set, libflint), Nothing, (Ref{fmpz}, Ref{fmpz}), a, b)
+function copy_into!(a::ZZRingElem, b::ZZRingElem)
+  ccall((:fmpz_set, libflint), Nothing, (Ref{ZZRingElem}, Ref{ZZRingElem}), a, b)
   return a
 end
 
-function copy_into!(a::fmpq, b::fmpq)
-  ccall((:fmpq_set, libflint), Nothing, (Ref{fmpq}, Ref{fmpq}), a, b)
+function copy_into!(a::QQFieldElem, b::QQFieldElem)
+  ccall((:fmpq_set, libflint), Nothing, (Ref{QQFieldElem}, Ref{QQFieldElem}), a, b)
   return a
 end
 
 #for larger lists much better than Bill's (Nemo's) prod function
-# the build-in Julia is better than Bill's Nemo function anyway
+# the built-in Julia is better than Bill's Nemo function anyway
 """
   Data structure for a product-tree evaluation, need only
     O(nbits(length)) storage in comparison to O(n) for the julia
@@ -129,7 +129,7 @@ end
     x   0      x   0    ...    x   0  =  x^(n+1   0)
     a_0 1      a_1 1           a_n 1     f(x)     1
 
- clearly, the second col is not neccessary, and (slightly more complicated)
+ clearly, the second col is not necessary, and (slightly more complicated)
  the only powers if x that are used in the prod tree are x^(2^i)
  for 0<= i <= nbits(n)
 """
@@ -303,7 +303,7 @@ end
 
 # Bernstein: coprime bases
 #
-#Note: Bernstein needs bigints, either Integer or fmpz
+#Note: Bernstein needs bigints, either Integer or ZZRingElem
 #      well, polys are also OK, small integers are not.
 
 # could/ should be optimsed using divexact! and gcd_into!
@@ -495,7 +495,7 @@ end
 #   faster than Magma on
 # > I := [Random(1, 10000) * Random(1, 10000) : x in [1..10000]];
 # > time c := CoprimeBasis(I);
-# julia> I = [fmpz(rand(1:10000))*rand(1:10000) for i in 1:10000];
+# julia> I = [ZZRingElem(rand(1:10000))*rand(1:10000) for i in 1:10000];
 #
 # experimentally, unless the input is enormous, Steel wins
 # on smallish input Bach is better than Bernstein, on larger this
@@ -505,14 +505,14 @@ end
 # isone, gcd_into!, divexact!, copy
 # (some more for Bernstein: FactorBase, gcd, divexact)
 
-@doc Markdown.doc"""
+@doc raw"""
     coprime_base{E}(S::Vector{E}) -> Vector{E}
 
 Returns a coprime base for $S$, i.e. the resulting array contains pairwise coprime objects that multiplicatively generate the same set as the input array.
 """
 coprime_base(x) = coprime_base_steel(x)
 
-@doc Markdown.doc"""
+@doc raw"""
     coprime_base_insert{E}(S::Vector{E}, a::E) -> Vector{E}
 
 Given a coprime array $S$, insert a new element, i.e. find a coprime base for `push(S, a)`.

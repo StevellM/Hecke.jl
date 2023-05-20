@@ -99,7 +99,7 @@ end
 # It is easier to construct all complex_embeddings at one
 function _complex_embeddings(L::NfRel{T}) where {T}
   K = base_field(L)
-  data = _conjugates_data_new(L, 32)
+  data = _conjugates_data(L, 32)
   r, s = signature(L)
   embs = Vector{embedding_type(L)}(undef, absolute_degree(L))
   S = embedding_type(parent_type(T))
@@ -145,17 +145,27 @@ end
 #
 ################################################################################
 
-function Base.show(io::IO, ::MIME"text/plain",  P::NumFieldEmbNfRel)
-  print(io, "Embedding of\n")
-  println(io, number_field(P))
-  print(io, "extending the embedding\n", P.base_field_emb, "\n")
-  print(io, "with root ≈ ")
+function Base.show(io::IO, ::MIME"text/plain", P::NumFieldEmbNfRel)
+  print(io, "Complex embedding corresponding to root ")
   _print_acb_neatly(io, P.r)
+  io = pretty(io)
+  println(io)
+  print(io, Indent(), "of ", Lowercase())
+  Base.show(io, MIME"text/plain"(), number_field(P))
+  println(io)
+  print(io, "extending ", Lowercase(), P.base_field_emb)
+  print(io, Dedent())
 end
 
 function Base.show(io::IO, f::NumFieldEmbNfRel)
-  print(io, "Embedding corresponding to (", f.base_field_emb, ") and ≈ ")
-  _print_acb_neatly(io, f.r)
+  if get(io, :supercompact, false)
+    print(io, "Complex embedding of relative number field")
+  else
+    print(io, "Complex embedding corresponding to root ")
+    _print_acb_neatly(io, f.r)
+    io = pretty(io)
+    print(IOContext(io, :supercompact => true), " of ", Lowercase(), number_field(f))
+  end
 end
 
 ################################################################################
@@ -178,10 +188,10 @@ function (f::NumFieldEmbNfRel)(a::NfRelElem, prec::Int = 32)
   d = absolute_degree(L)
 
   while true
-    data = _conjugates_data_new(L, wprec)
+    data = _conjugates_data(L, wprec)
 
     CC = AcbField(wprec, cached = false)
-    CCy, y = PolynomialRing(CC, cached = false)
+    CCy, y = polynomial_ring(CC, cached = false)
 
     _r, _s = signature(K)
     real_cnt = 1

@@ -1,4 +1,4 @@
-using Hecke, Test, Dates, Printf
+using Hecke, Test, Dates, Printf, Documenter
 
 DEFAULT_NPROCS = 4
 
@@ -120,7 +120,7 @@ if fl === "true" && !no_parallel && !Sys.iswindows()
 end
 
 # Special consideration for Windows on CI
-# We quickly run out of ressources there, so let's do non-parallel and only short
+# We quickly run out of resources there, so let's do non-parallel and only short
 if fl === "true" && Sys.iswindows()
   isparallel = false
   short_test = true
@@ -257,7 +257,7 @@ else
   if !isparallel
     # We are not short
     k, a = quadratic_field(5)
-    @test fmpz(1) - a == -(a - 1)
+    @test ZZRingElem(1) - a == -(a - 1)
     @test 1 - a == -(a - 1)
 
     include("setup.jl")
@@ -291,14 +291,12 @@ else
     include("parallel.jl")
   end
 
-  #try
-  #  using Polymake
-  #  @time include("AlgAssRelOrd/Eichler.jl")
-  #catch e
-  #  if !(isa(e, ArgumentError))
-  #    rethrow(e)
-  #  else
-  #    println("using Polymake failed. Not running sophisticated norm equation tests")
-  #  end
-  #end
+  # Run the doctests
+  if v"1.8.0" <= VERSION < v"1.9.0"
+    @info "Running doctests (Julia version is 1.8)"
+    DocMeta.setdocmeta!(Hecke, :DocTestSetup, :(using Hecke); recursive = true)
+    doctest(Hecke)
+  else
+    @info "Not running doctests (Julia version must be 1.8)"
+  end
 end

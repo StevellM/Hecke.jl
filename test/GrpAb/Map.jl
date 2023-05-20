@@ -10,6 +10,9 @@
     bb, c = @inferred haspreimage(mH, b)
     @test !bb
     # TODO: Test for has_image missing
+
+    fl, c = @inferred haspreimage(mH, elem_type(H)[])
+    @test fl
   end
 
   @testset "Homomorphisms" begin
@@ -37,6 +40,12 @@
     K, mK = @inferred kernel(h)
     @test all(iszero(h(mK(k))) for k in K)
     @test order(K) == 8
+
+    G = abelian_group(Int[])
+    H = abelian_group([2])
+    h = hom(G, H, eltype(G)[])
+    K, mK = @inferred kernel(h)
+    @test isone(order(K))
   end
 
   @testset "Image" begin
@@ -76,6 +85,11 @@
     h = @inferred hom(G, [3*h for h in gens(H)])
     b = @inferred is_surjective(h)
     @test b
+
+    G = abelian_group([0, 2, 0, 2])
+    H = abelian_group([0, 2])
+    g = hom(G, H, [gen(H, 1), gen(H, 2), gen(H, 1), gen(H, 2)])
+    @test (@inferred is_surjective(g))
   end
 
   @testset "Bijectivity" begin
@@ -91,10 +105,23 @@
     @test b
 
     # corner case
-    G = abelian_group(fmpz[])
-    H = abelian_group(fmpz[])
+    G = abelian_group(ZZRingElem[])
+    H = abelian_group(ZZRingElem[])
     i = hom(G, H, gens(H))
     j = inv(i)
     @test id(G)==j(id(H))
+  end
+
+  @testset "Post- and preinverse" begin
+    G = abelian_group([0, 2, 0, 2])
+    H = abelian_group([0, 2])
+    f = hom(H, G, [gen(G, 3), gen(G, 4)])
+    g = hom(G, H, [gen(H, 1), gen(H, 2), gen(H, 1), gen(H, 2)])
+    ff = postinverse(f)
+    @test f * ff == id_hom(H)
+    gg = preinverse(g)
+    @test gg * g == id_hom(H)
+    @test_throws ArgumentError preinverse(f)
+    @test_throws ArgumentError postinverse(g)
   end
 end

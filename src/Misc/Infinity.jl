@@ -75,19 +75,19 @@ Base.one(::PosInf) = 1
 
 Base.zero(::PosInf) = 0
 
-Base.isless(::PosInf, ::fmpz) = false
+Base.isless(::PosInf, ::ZZRingElem) = false
 
-Base.isless(::fmpz, ::PosInf) = true
+Base.isless(::ZZRingElem, ::PosInf) = true
 
-Base.isless(::PosInf, ::fmpq) = false
+Base.isless(::PosInf, ::QQFieldElem) = false
 
-Base.isless(::fmpq, ::PosInf) = true
+Base.isless(::QQFieldElem, ::PosInf) = true
 
 const IntExt = Union{Int, PosInf}
 
 is_positive(::PosInf) = true
 
-@doc Markdown.doc"""
+@doc raw"""
     is_infinite(x::Any) -> Bool
 
 Tests whether $x$ is infinite, by returning `!isfinite(x)`.

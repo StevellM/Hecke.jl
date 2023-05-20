@@ -3,6 +3,20 @@
 @alias is_hermitian ishermitian
 
 # for backwards compatibility
+@alias AbsLat AbstractLat
+@alias AbsSpace AbstractSpace
+@alias AbsSpaceMor AbstractSpaceMor
+@alias add_assert_scope add_assertion_scope
+@alias add_verbose_scope add_verbosity_scope
+
+@alias get_assert_level get_assertion_level
+@alias get_verbose_level get_verbosity_level
+@alias genera integer_genera
+@alias genera_hermitian hermitian_genera
+@alias genera_quadratic quadratic_genera
+@alias GenusHerm HermGenus
+@alias GenusQuad QuadGenus
+
 @alias hasalgebra has_algebra
 @alias hasembedding has_embedding
 @alias hasimage has_image
@@ -179,3 +193,24 @@
 @alias iszero_entry is_zero_entry
 @alias iszero_mod_hnf! is_zero_mod_hnf!
 @alias iszerodivisor is_zerodivisor
+
+@alias local_genera_hermitian hermitian_local_genera
+@alias local_genera_quadratic quadratic_local_genera
+@alias LocalGenusHerm HermLocalGenus
+@alias LocalGenusQuad QuadLocalGenus
+
+@alias set_assert_level set_assertion_level
+@alias set_verbose_level set_verbosity_level
+
+@alias TorQuadMod TorQuadModule
+@alias TorQuadModElem TorQuadModuleElem
+@alias TorQuadModMor TorQuadModuleMor
+
+@alias ZGenus ZZGenus
+@alias ZLat ZZLat
+@alias Zgenera integer_genera
+@alias Zlattice integer_lattice
+@alias ZpGenus LocalZZGenus
+
+# Deprecated during 0.17.*
+@alias real_field real_number_field

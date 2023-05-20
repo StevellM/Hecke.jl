@@ -39,6 +39,8 @@ pages = [
                      "pmat/introduction.md",
                      "misc/conjugacy.md",
                      ],
+         "Extra features" => ["features/macros.md",
+                             ],
          "Examples" => "examples.md",
          "References" => "references.md",
          "Developer" => [ "dev/test.md",
@@ -64,7 +66,7 @@ Base.print(io::IO, b::Base.Docs.Binding) = print(io, b.var)
 
 function make(Hecke::Module; strict = false,
                              local_build::Bool = false,
-                             doctest::Bool = true,
+                             doctest = true,
                              format::Symbol = :mkdocs)
 
   # Load the bibliography
@@ -74,6 +76,7 @@ function make(Hecke::Module; strict = false,
 
   cd(joinpath(Hecke.pkgdir, "docs")) do
     DocMeta.setdocmeta!(Hecke, :DocTestSetup, :(using Hecke); recursive = true)
+    DocMeta.setdocmeta!(Hecke.Nemo, :DocTestSetup, :(using Hecke.Nemo); recursive = true)
 
     if format == :html
       makedocs(
@@ -81,7 +84,7 @@ function make(Hecke::Module; strict = false,
         format = Documenter.HTML(prettyurls = !local_build, collapselevel = 1),
         doctest = doctest,
         strict = strict,
-        modules = [Hecke],
+        modules = [Hecke, Hecke.Nemo],
         sitename = "Hecke documentation",
         pages = pages
       )
@@ -90,7 +93,7 @@ function make(Hecke::Module; strict = false,
           bib,
           doctest= doctest,
           strict = strict,
-          modules = [Hecke],
+          modules = [Hecke, Hecke.Nemo],
           format = Markdown(),
       )
     end

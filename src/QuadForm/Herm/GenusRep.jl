@@ -31,7 +31,7 @@ function _all_row_span(M)
   return res
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     smallest_neighbour_prime(L::HermLat) -> Bool, NfRelOrdIdl, Vector{NfOrdIdl}
 
 Given a hermitian lattice `L`, return `def, P0, bad` such that:
@@ -102,7 +102,7 @@ function smallest_neighbour_prime(L::HermLat)
       return true, QQ, bad
     end
   end
-  throw(error("Impossible"))
+  error("Impossible")
 end
 
 function _neighbour(L, B, xG, x, h, P, CC, split)
@@ -181,7 +181,7 @@ function _neighbours(L, P, result, max, callback = eqcallback, use_auto = true)
       error("This should not happen.")
     end
   end
-  k, h = ResidueField(R, C)
+  k, h = residue_field(R, C)
   hext = extend(h, K)
   local form::dense_matrix_type(K)
   form = gram_matrix(ambient_space(L))
@@ -224,6 +224,7 @@ function _neighbours(L, P, result, max, callback = eqcallback, use_auto = true)
       x = elem_type(K)[ sum(T[i, j] * (hext\w[i]) for i in 1:n) for j in 1:ncols(T)]
       LL = _neighbour(L, T, pih * matrix(k, 1, length(w), w) * G, K(pi) .* x, hext, P, C, true)
       keep, cont = callback(result, LL)
+      @assert is_modular(LL, P)[1]
       if keep
         push!(result, LL)
       end
@@ -235,7 +236,7 @@ function _neighbours(L, P, result, max, callback = eqcallback, use_auto = true)
     pi = uniformizer(P)
     _G = elem_in_nf(pi) * T * form * _map(transpose(T), a)
     G = map_entries(hext, _G)
-    for w::Vector{fq} in LO
+    for w::Vector{FqFieldElem} in LO
       Gw = G * matrix(k, length(w), 1, w)
       ok = 0
       for d in 1:n
@@ -255,6 +256,7 @@ function _neighbours(L, P, result, max, callback = eqcallback, use_auto = true)
       LL = _neighbour(L, T, matrix(k, 1, length(w), w) * G, x, hext, P, P, false)
       keep, cont = callback(result, LL)
       if keep
+        @assert is_modular(LL, P)[1]
         push!(result, LL)
       end
       if !cont || length(result) >= max
@@ -271,11 +273,12 @@ function _neighbours(L, P, result, max, callback = eqcallback, use_auto = true)
     else
       p = minimum(P)
       pi = uniformizer(p)
-      kp, hp = ResidueField(order(p), p)
+      kp, hp = residue_field(order(p), p)
+      hpext = extend(hp, base_field(K))
       alpha = h\(degree(k) == 1 ? one(k) : gen(k))
       Tram = matrix(kp, 2, 1, [2, hp(tr(alpha))])
     end
-    for w::Vector{fq} in LO
+    for w::Vector{FqFieldElem} in LO
       __w = [ (hext\w[i]) for i in 1:n]
       x = [ sum(T[i, j] * (__w[i]) for i in 1:n if !iszero(w[i])) for j in 1:ncols(T)]
       nrm = _inner_product(form, x, x, a)
@@ -298,12 +301,13 @@ function _neighbours(L, P, result, max, callback = eqcallback, use_auto = true)
         @assert s * Tram == matrix(kp, 1, 1, [hp(-el)])
         _kernel = [ matrix(kp, 1, 2, v) for v in _all_row_span(V)]
         l = a(hext\(inv(wG[ok])))
-        S = elem_type(K)[ l * (hext\((s + v)[1]) + (hext\(s + v)[2])*alpha) for v in _kernel ]
+        S = elem_type(K)[ l * K((hpext\((s + v)[1])) + K(hpext\(s + v)[2])*alpha) for v in _kernel ]
       end
       for s in S
         LL = _neighbour(L, T, wG, elem_type(K)[x[o] + K(elem_in_nf(pi))*s*T[ok, o] for o in 1:ncols(T)], hext, P, P, false)
         keep, cont = callback(result, LL)
         if keep
+          @assert is_modular(LL, P)[1]
           push!(result, LL)
         end
         if !cont || (length(result) >= max)
@@ -315,7 +319,7 @@ function _neighbours(L, P, result, max, callback = eqcallback, use_auto = true)
   return result
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     neighbours(L::HermLat, P::NfRelOrdIdl, max = inf) -> Vector{HermLat}
 
 Return the immediate `P`-neighbours of `L`. At most `max` neighbours are returned.
@@ -334,10 +338,10 @@ function neighbours(L::HermLat, P, max = inf)
   return _neighbours(L, P, [], max)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     iterated_neighbours(L:HermLat, P::NfRelOrdIdl; use_auto = false, max = inf,
 				                   callback = eqcallback,
-						   missing_mass = Ref{fmpq}(zero(fmpq)))
+						   missing_mass = Ref{QQFieldElem}(zero(QQFieldElem)))
                                                                             -> Vector{HermLat}
 
 Return a set of representatives of $N(L,P)$ (see [Kir16, Definition 5.2.6]). At most
@@ -347,11 +351,11 @@ The use of the automorphism group of `L` is disabled by default. If `use_auto` i
 `true`, the function uses the automorphism group in the definite case; in the indefinite
 case, this keyword has no effect.
 If `callback == false`, it uses `stdcallback` in the case where `L` is definite, `eqcallback`
-otherwise. By defaut, the use of the mass is disabled.
+otherwise. By default, the use of the mass is disabled.
 """
 function iterated_neighbours(L::HermLat, P; use_auto = false, max = inf,
                                             callback = false,
-                                            missing_mass = Ref{fmpq}(zero(fmpq)))
+                                            missing_mass = Ref{QQFieldElem}(zero(QQFieldElem)))
   @req order(P) == base_ring(L) "Arguments are incompatible"
   @req is_prime(P) "Second argument must be prime"
   @req !is_ramified(order(P), minimum(P)) || !Hecke.is_dyadic(minimum(P)) "Second argument cannot be a ramified prime over 2"
@@ -379,16 +383,17 @@ function iterated_neighbours(L::HermLat, P; use_auto = false, max = inf,
   oldlength = length(result)
   while length(result) < max && i <= length(result)
     result = _neighbours(result[i], P, result, max, _callback, use_auto)
+    @assert all(_L -> is_modular(_L, P)[1], result)
     no_lattices = length(result) - oldlength
     oldlength = length(result)
     if use_mass && no_lattices > 0
-      _mass = _mass - sum(fmpq[1//automorphism_group_order(result[i]) for i in (length(result) - no_lattices + 1):length(result)])
+      _mass = _mass - sum(QQFieldElem[1//automorphism_group_order(result[i]) for i in (length(result) - no_lattices + 1):length(result)])
       if iszero(_mass)
         break
       end
     end
     if use_mass && _mass < 0
-      throw(error("This should not happen"))
+      error("This should not happen")
     end
     i = i + 1
   end
@@ -398,15 +403,12 @@ function iterated_neighbours(L::HermLat, P; use_auto = false, max = inf,
   return result
 end
 
-@doc Markdown.doc"""
-    neighbours_with_ppower(L::HermLat, P::NfRelOrdIdl, e::Integer, use_auto = true)
+@doc raw"""
+    neighbours_with_ppower(L::HermLat, P::NfRelOrdIdl, e::Integer)
                                                                       -> Vector{HermLat}
 
 Return a sequence of `P`-neighbours of length `e`, $L=L_1, L_2, \dots, L_e$ such that
 $L_{i-1} \neq L_{i+1}$ for $i = 2, \dots, e-1$ (see [Kir19, Algorithm 4.7.]).
-
-If the lattice is definite, the use of the automorphism group is by default enabled.
-In the indefinite case, the automorphism group is not used.
 """
 function neighbours_with_ppower(L, P, e)
   result = typeof(L)[]
@@ -428,8 +430,8 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    genus_generators(L::HermLat) -> Vector{Tuple{NfRelOrdIdl, fmpz}}, Bool,
+@doc raw"""
+    genus_generators(L::HermLat) -> Vector{Tuple{NfRelOrdIdl, ZZRingElem}}, Bool,
                                     NfRelOrdIdl
 
 Given a hermitian lattice `L`, return `gens, def, P0` such that:
@@ -473,9 +475,9 @@ function genus_generators(L::HermLat)
   q00 = pseudo_inv(q0) * h
   PP = ideal_type(R)[]
 
-  local F::GaloisField
+  local F::FqField
 
-  local W::Generic.QuotientModule{gfp_elem}
+  local W::Generic.QuotientModule{FqFieldElem}
 
   if iseven(rank(L))
     for (P, e) in factor(D)
@@ -502,7 +504,7 @@ function genus_generators(L::HermLat)
       l = length(PP)
       VD = Int[ valuation(D, P) for P in PP ]
       K, k = kernel(nnorm)
-      F = GF(2, cached = false)
+      F = Nemo._GF(2, cached = false)
       V = VectorSpace(F, length(PP))
       S = elem_type(V)[]
       for u in gens(K)
@@ -525,7 +527,7 @@ function genus_generators(L::HermLat)
     end
   end
 
-  Gens = Tuple{ideal_type(R), fmpz}[]
+  Gens = Tuple{ideal_type(R), ZZRingElem}[]
 
   if isempty(PP)
     S = GrpAbFinGenElem[]
@@ -539,7 +541,7 @@ function genus_generators(L::HermLat)
       end
       P = popfirst!(Work)
       c = (q00\(EabstoE\P))::GrpAbFinGenElem
-      o = order(q(c))::fmpz
+      o = order(q(c))::ZZRingElem
       if !isone(o)
         push!(S, c)
         Q, q = quo(Q0, S)::Tuple{GrpAbFinGen, GrpAbFinGenMap}
@@ -634,7 +636,7 @@ function genus_generators(L::HermLat)
   return Gens, def, P0
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     genus_representatives(L::HermLat; max = inf, use_auto = true,
                                                  use_mass = false)
                                                           -> Vector{HermLat}
@@ -648,7 +650,15 @@ It can be disabled by `use_auto = false`. In the case where `L` is indefinite, t
 """
 function genus_representatives(L::HermLat; max = inf, use_auto::Bool = true,
                                                       use_mass::Bool = false)
+  if rank(L) == 1
+    Eabs = absolute_simple_field(base_field(L))[1]
+    !is_cm_field(Eabs)[1] && error("Not yet available for rank 1 lattices over non cm-fields")
+    relative_class_number(Eabs) == 1 && return typeof(L)[L]
+    error("Not yet available from rank 1 lattices with class number bigger than 1")
+  end
   @req rank(L) >= 2 "Lattice must have rank >= 2"
+  s = denominator(scale(L))
+  L = rescale(L, s)
   R = base_ring(L)
   gens, def, P0 = genus_generators(L)
   a = involution(L)
@@ -675,7 +685,7 @@ function genus_representatives(L::HermLat; max = inf, use_auto::Bool = true,
   if use_mass
     mass = Hecke.mass(L)
   else
-    mass = zero(fmpq)
+    mass = zero(QQFieldElem)
   end
 
   missing_mass = Ref(mass)
@@ -692,16 +702,16 @@ function genus_representatives(L::HermLat; max = inf, use_auto::Bool = true,
   else
     result = LL
   end
-  return result
+  return [rescale(LL, 1//s) for LL in result]
 end
 
-@doc Markdown.doc"""
-    representatives(G::GenusHerm) -> Vector{HermLat}
+@doc raw"""
+    representatives(G::HermGenus) -> Vector{HermLat}
 
 Given a global genus symbol `G` for hermitian lattices, return representatives
 for the isometry classes of hermitian lattices in `G`.
 """
-function representatives(G::GenusHerm)
+function representatives(G::HermGenus)
   return genus_representatives(representative(G))
 end
 

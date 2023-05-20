@@ -43,8 +43,8 @@ is_simplified_model, integral_model, is_integral_model
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    short_weierstrass_model(E::EllCrv{fmpq}) ->
+@doc raw"""
+    short_weierstrass_model(E::EllCrv{QQFieldElem}) ->
       (EE::EllCrv, EllCrvIso, EllCrvIso)
 
 Transform a curve given in long Weierstrass form over QQ to short Weierstrass
@@ -120,7 +120,7 @@ function _short_weierstrass_model(E::EllCrv{T}) where T
 end
 =#
 
-@doc Markdown.doc"""
+@doc raw"""
     is_short_weierstrass_model(E::EllCrv) -> Bool
 
 Return true if E is in short Weierstrass form.
@@ -137,7 +137,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     simplified_model(E::EllCrv) ->
       (EE::EllCrv, function(EllCrvPt), function(EllCrvPt))
 
@@ -183,7 +183,7 @@ function simplified_model(E::EllCrv)
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     is_simplified_model(E::EllCrv) -> Bool
 
 Return true if E is a simplified model.
@@ -217,14 +217,14 @@ end
 #
 ################################################################################
 #=
-@doc Markdown.doc"""
-    integral_model(E::EllCrv{fmpq}) -> (F::EllCrv{fmpz}, function, function)
+@doc raw"""
+    integral_model(E::EllCrv{QQFieldElem}) -> (F::EllCrv{ZZRingElem}, function, function)
 
 Given an elliptic curve $E$ over $\mathbf Q$ in short form, returns an
 isomorphic curve $F$ with model over $\mathbf Z$. The second and third
 return values are the isomorpisms $E \to F$ and $F \to E$.
 """
-function integral_model_old(E::EllCrv{fmpq})
+function integral_model_old(E::EllCrv{QQFieldElem})
   _, _, _, A, B = a_invars(E)
 
   mue = lcm(denominator(A), denominator(B))
@@ -254,32 +254,32 @@ function integral_model_old(E::EllCrv{fmpq})
     return S
   end
 
-  return E_int::EllCrv{fmpq}, trafo_int, trafo_rat
+  return E_int::EllCrv{QQFieldElem}, trafo_int, trafo_rat
 end
 =#
 
-@doc Markdown.doc"""
+@doc raw"""
     integral_model(E::EllCrv{T}) -> (F::EllCrv{T}, EllCrvIso, EllCrvIso)
-      where T<:Union{fmpq, nf_elem}
+      where T<:Union{QQFieldElem, nf_elem}
 
 Given an elliptic curve $E$ over QQ or a number field $K$, returns an
 isomorphic curve $F$ with model over $\mathcal{O}_K$. The second and third
 return values are the isomorpisms $E \to F$ and $F \to E$.
 """
-function integral_model(E::EllCrv{T}) where T<:Union{fmpq, nf_elem}
+function integral_model(E::EllCrv{T}) where T<:Union{QQFieldElem, nf_elem}
 
   a1, a2, a3, a4, a6 = map(denominator, a_invars(E))
   mu = lcm(a1, a2, a3, a4, a6)
   return transform_rstu(E, [0, 0, 0, 1//mu])
 end
 
-@doc Markdown.doc"""
-    is_integral_model(E::EllCrv{T}) -> Bool where T<:Union{fmpq, nf_elem}
+@doc raw"""
+    is_integral_model(E::EllCrv{T}) -> Bool where T<:Union{QQFieldElem, nf_elem}
 
 Given an elliptic curve $E$ over QQ or a number field $K$, return
 true if $E$ is an integral model of $E$.
 """
-function is_integral_model(E::EllCrv{T}) where T<:Union{fmpq, nf_elem}
+function is_integral_model(E::EllCrv{T}) where T<:Union{QQFieldElem, nf_elem}
 
   a1, a2, a3, a4, a6 = map(denominator, a_invars(E))
   mu = lcm(a1, a2, a3, a4, a6)
@@ -290,7 +290,7 @@ function is_integral_model(E::EllCrv{T}) where T<:Union{fmpq, nf_elem}
   return false
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     is_local_integral_model(E::EllCrv{nf_elem}, P::NfOrdIdl) -> Bool 
 
 Given an elliptic curve $E$ over a number field $K$ and a prime ideal, return

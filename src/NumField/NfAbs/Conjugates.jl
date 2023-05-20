@@ -7,8 +7,8 @@ export is_totally_real, is_totally_complex, conjugates, conjugates_real,
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    is_totally_real(K::NumberField) -> Bool
+@doc raw"""
+    is_totally_real(K::number_field) -> Bool
 
 Returns true if and only if $K$ is totally real, that is, if all roots of the
 defining polynomial are real.
@@ -17,9 +17,9 @@ function is_totally_real(K::NumField)
   return iszero(signature(K)[2])
 end
 
-is_totally_real(::FlintRationalField) = true
+is_totally_real(::QQField) = true
 
-@doc Markdown.doc"""
+@doc raw"""
     is_totally_complex(K::AnticNumberField) -> Bool
 
 Returns true if and only if $K$ is totally complex, that is, if all roots of the
@@ -29,7 +29,7 @@ function is_totally_complex(K::NumField)
   return iszero(signature(K)[1])
 end
 
-is_totally_complex(::FlintRationalField) = false
+is_totally_complex(::QQField) = false
 
 ################################################################################
 #
@@ -37,13 +37,13 @@ is_totally_complex(::FlintRationalField) = false
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     conjugates(x::nf_elem, abs_tol::Int) -> Vector{acb}
 
 Compute the conjugates of $x$ as elements of type `acb`.
 Recall that we order the complex conjugates
 $\sigma_{r+1}(x),...,\sigma_{r+2s}(x)$ such that
-$\sigma_{i}(x) = \overline{sigma_{i + s}(x)}$ for $r + 1 \leq i \leq r + s$.
+$\sigma_{i}(x) = \overline{\sigma_{i + s}(x)}$ for $r + 1 \leq i \leq r + s$.
 
 Every entry $y$ of the vector returned satisfies
 `radius(real(y)) < 2^-abs_tol` and `radius(imag(y)) < 2^-abs_tol` respectively.
@@ -56,13 +56,13 @@ function conjugates(x::NumFieldElem, abs_tol::Int = 32, T = arb)
   end
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     conjugates(x::nf_elem, C::AcbField) -> Vector{acb}
 
 Compute the conjugates of $x$ as elements of type `acb`.
 Recall that we order the complex conjugates
 $\sigma_{r+1}(x),...,\sigma_{r+2s}(x)$ such that
-$\sigma_{i}(x) = \overline{sigma_{i + s}(x)}$ for $r + 1 \leq i \leq r + s$.
+$\sigma_{i}(x) = \overline{\sigma_{i + s}(x)}$ for $r + 1 \leq i \leq r + s$.
 
 Let `p` be the precision of `C`, then every entry $y$ of the vector returned
 satisfies `radius(real(y)) < 2^-p` and `radius(imag(y)) < 2^-p`
@@ -72,7 +72,7 @@ function conjugates(x::NumFieldElem, C::AcbField)
   return map(C, conjugates_arb(x, precision(C)))
 end
 
-function conjugates(x::fmpq, abs_tol::Int = 32)
+function conjugates(x::QQFieldElem, abs_tol::Int = 32)
   return [ComplexField(abs_tol)(x)]
 end
 
@@ -185,7 +185,7 @@ function conjugates_arb(x::nf_elem, abs_tol::Int = 32)
   end
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     conjugates_arb_real(x::nf_elem, abs_tol::Int) -> Vector{arb}
 
 Compute the real conjugates of $x$ as elements of type `arb`.
@@ -213,13 +213,13 @@ function conjugates_arb_real(x::nf_elem, abs_tol::Int = 32)
   return z
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     conjugates_complex(x::nf_elem, abs_tol::Int) -> Vector{acb}
 
 Compute the complex conjugates of $x$ as elements of type `acb`.
 Recall that we order the complex conjugates
 $\sigma_{r+1}(x),...,\sigma_{r+2s}(x)$ such that
-$\sigma_{i}(x) = \overline{sigma_{i + s}(x)}$ for $r + 1 \leq i \leq r + s$.
+$\sigma_{i}(x) = \overline{\sigma_{i + s}(x)}$ for $r + 1 \leq i \leq r + s$.
 
 Every entry $y$ of the array returned satisfies
 `radius(real(y)) < 2^-abs_tol` and `radius(imag(y)) < 2^-abs_tol`.
@@ -250,7 +250,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     conjugates_arb_log(x::nf_elem, abs_tol::Int) -> Vector{arb}
 
 Returns the elements
@@ -263,7 +263,7 @@ function conjugates_log(x::nf_elem, abs_tol::Int = 32, T = arb)
   if T === arb
     return conjugates_arb_log(x, abs_tol)
   else
-    throw(error("Cannot return real conjugates as type ", T))
+    error("Cannot return real conjugates as type ", T)
   end
 end
 
@@ -348,7 +348,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     minkowski_map(a::nf_elem, abs_tol::Int) -> Vector{arb}
 
 Returns the image of $a$ under the Minkowski embedding.
@@ -378,7 +378,7 @@ function _minkowski_map_and_apply(a, abs_tol, G, work_tol::Int = abs_tol)
   end
 
   if work_tol > 2^18 || abs_tol > 2^18
-    throw(error("asdsd"))
+    error("asdsd")
   end
 
   #R = ArbField(precision(parent(c[1])), false)
@@ -431,7 +431,7 @@ end
 #
 ############################################################################
 
-#@doc Markdown.doc"""
+#@doc raw"""
 ##    _signs(a::nf_elem) -> Vector{Int}
 #> For a non-zero element $a$ return the signs of all real embeddings.
 #"""
@@ -465,7 +465,7 @@ function _signs(a::nf_elem)
   end
 end
 
-#@doc Markdown.doc"""
+#@doc raw"""
 ##    signs(a::FacElem{nf_elem, AnticNumberField}) -> Vector{Int}
 #> For a non-zero element $a$ in factored form,
 #> return the signs of all real embeddings.
@@ -487,7 +487,7 @@ function _signs(a::FacElem{nf_elem, AnticNumberField})
   return s
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     complex_conjugation(K::AnticNumberField)
 
 Given a totally complex normal number field, this function returns an
@@ -614,5 +614,4 @@ function is_complex_conjugation(f::NfToNfMor)
       error("Precision too high in complex_conjugation")
     end
   end
-
 end

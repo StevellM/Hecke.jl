@@ -1,4 +1,4 @@
-@doc Markdown.doc"""
+@doc raw"""
     norm(m::T, I::NfOrdIdl) where T <: Map{AnticNumberField, AnticNumberField} -> NfOrdIdl
 
 Given an embedding $m:k\to K$ of number fields and an integral ideal in $K$, find the norm
@@ -16,8 +16,8 @@ function norm(m::T, I::NfOrdIdl; order = maximal_order(domain(m))) where T <: Ma
   if I.is_principal == 1
     if isdefined(I, :princ_gen)
       return ideal(zk, zk(norm(m, (I.princ_gen).elem_in_nf)))
-    elseif isdefined(J,:princ_gen_special)
-      el = J.princ_gen_special[2] + J.princ_gen_special[3]
+    elseif isdefined(I, :princ_gen_special)
+      el = I.princ_gen_special[2] + I.princ_gen_special[3]
       return ideal(zk, zk(norm(m, el)))
     end
   end
@@ -34,7 +34,7 @@ end
 
 #TODO: intersect_nonindex uses a worse algo in a more special case. Combine.
 #  for prime ideals, the gcd's can be done in F_p/ F_q hence might be faster
-@doc Markdown.doc"""
+@doc raw"""
     minimum(m::T, I::NfOrdIdl) where T <: Map{AnticNumberField, AnticNumberField} -> NfOrdIdl
 
 Given an embedding $m:k\to K$ of number fields and an integral ideal in $K$, find the
@@ -80,7 +80,7 @@ function minimum(m::T, I::NfOrdIdl) where T <: Map{AnticNumberField, AnticNumber
 
   @assert K == nf(order(I))
   k = domain(m)
-  kt, t = PolynomialRing(k, cached = false)
+  kt, t = polynomial_ring(k, cached = false)
   Qt = parent(K.pol)
   h = gcd(gen(k) - evaluate(Qt(m(gen(k))), t), evaluate(K.pol, t))
   g, ai, _ = gcdx(evaluate(Qt(I.gen_two.elem_in_nf), t) % h, h)
@@ -104,7 +104,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     intersect_prime(f::Map, P::NfOrdIdl, O_k::NfOrd) -> NfOrdIdl
 
 Given a prime ideal $P$ in $K$ and the inclusion map $f:k \to K$
@@ -151,7 +151,7 @@ function intersect_nonindex(f::Map, P::NfOrdIdl, Zk::NfOrd = maximal_order(domai
   g = change_base_ring(base_ring(Qx), k.pol, parent = Qx)
   h = Qx(f(gen(k)))
 
-  Fp, xp = PolynomialRing(GF(Int(minimum(P)), cached=false), cached=false)
+  Fp, xp = polynomial_ring(Native.GF(Int(minimum(P)), cached=false), cached=false)
   gp = factor(Fp(g))
   hp = Fp(h)
   Gp = gcd(Fp(K(P.gen_two)), Fp(G))
@@ -164,7 +164,7 @@ function intersect_nonindex(f::Map, P::NfOrdIdl, Zk::NfOrd = maximal_order(domai
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     prime_decomposition_nonindex(f::Map, p::NfOrdIdl, Z_K::NfOrd) -> Vector{Tuple{NfOrdIdl, Int}}
 
 Given a map $f: k\to K$ of number fields defined over $\mathbb Q$ and
@@ -207,14 +207,14 @@ function prime_decomposition_nonindex(f::Map, p::NfOrdIdl, ZK = maximal_order(co
   Qx = parent(G)
   res = Tuple{NfOrdIdl, Int}[]
   if fits(Int, minimum(p))
-    Fp = PolynomialRing(GF(Int(minimum(p)), cached = false), cached = false)[1]
+    Fp = polynomial_ring(Native.GF(Int(minimum(p)), cached = false), cached = false)[1]
     Gp = factor(ppio(Fp(G), Fp(f(p.gen_two.elem_in_nf)))[1])
     for (ke, e) in Gp
       P = ideal_from_poly(ZK, Int(minimum(p)), ke, e)
       push!(res, (P, divexact(e, ramification_index(p))))
     end
   else
-    Fp1 = PolynomialRing(GF(minimum(p), cached = false), cached = false)[1]
+    Fp1 = polynomial_ring(GF(minimum(p), cached = false), cached = false)[1]
     Gp1 = factor(ppio(Fp1(G), Fp1(Qx(f(K(p.gen_two)))))[1])
     for (ke, e) in Gp1
       P = ideal_from_poly(ZK, minimum(p), ke, e)
@@ -245,10 +245,10 @@ function prime_decomposition_type_nonindex(f::Map, p::NfOrdIdl, ZK = maximal_ord
   Qx = parent(G)
 
   if fits(Int, minimum(p, copy = false))
-    Fp = PolynomialRing(GF(Int(minimum(p)), cached = false), cached = false)[1]
+    Fp = polynomial_ring(Native.GF(Int(minimum(p)), cached = false), cached = false)[1]
     Gp = factor_shape(gcd(Fp(f(K(p.gen_two))), Fp(G)))
   else
-    Fpp = PolynomialRing(GF(minimum(p), cached = false), cached = false)[1]
+    Fpp = polynomial_ring(Native.GF(minimum(p), cached = false), cached = false)[1]
     Gp = factor_shape(gcd(Fpp(f(K(p.gen_two))), Fpp(G)))
   end
   res = Vector{Tuple{Int, Int}}(undef, sum(values(Gp)))

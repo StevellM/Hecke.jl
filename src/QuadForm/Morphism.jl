@@ -11,27 +11,6 @@
 # Pages 327-334, ISSN 0747-7171, 10.1006/jsco.1996.0130.
 # (https://www.sciencedirect.com/science/article/pii/S0747717196901303)
 
-mutable struct SCPComb
-	rank::Int
-	trans::fmpz_mat
-	coef::fmpz_mat
-  F::Vector{fmpz_mat}
-
-  SCPComb() = new()
-end
-
-mutable struct VectorList{S, T}
-  vectors::Vector{S}
-  lengths::Vector{Vector{T}}
-  lookup::Dict{S, Int}
-  issorted::Bool
-  use_dict::Bool
-
-  function VectorList{S, T}() where {S, T}
-    return new{S, T}()
-  end
-end
-
 function VectorList(vectors::Vector{S}, lengths::Vector{Vector{T}},
                     use_dict::Bool = true) where {S, T}
 
@@ -59,7 +38,7 @@ Base.issorted(V::VectorList) = V.issorted
 
 getindex(V::VectorList, i::Int) = i > 0 ? V.vectors[i] : -V.vectors[-i]
 
-function is_normalized(w::fmpz_mat)
+function is_normalized(w::ZZMatrix)
   for k in 1:ncols(w)
     if !iszero(w[1, k])
       return w[1, k] > 0
@@ -79,8 +58,8 @@ function neg!(w::Vector{Int})
   w .*= -1
 end
 
-function neg!(w::fmpz_mat)
-  ccall((:fmpz_mat_neg, libflint), Cvoid, (Ref{fmpz_mat}, Ref{fmpz_mat}), w, w)
+function neg!(w::ZZMatrix)
+  ccall((:fmpz_mat_neg, libflint), Cvoid, (Ref{ZZMatrix}, Ref{ZZMatrix}), w, w)
   return w
 end
 
@@ -135,7 +114,7 @@ function has_point(w, V::VectorList)
   end
 end
 
-function _find_point(w::fmpz_mat, V::VectorList{fmpz_mat, T}) where T
+function _find_point(w::ZZMatrix, V::VectorList{ZZMatrix, T}) where T
   positive = false
   for k in 1:length(w)
     if !iszero(w[1, k])
@@ -163,48 +142,6 @@ function _find_point(w::fmpz_mat, V::VectorList{fmpz_mat, T}) where T
   end
 end
 
-mutable struct ZLatAutoCtx{S, T, V}
-  G::Vector{T}
-  Gtr::Vector{T}
-  dim::Int
-  max::S
-  V::VectorList{V, S}
-  v::Vector{T}
-  per::Vector{Int}
-  fp::Matrix{Int}
-  fp_diagonal::Vector{Int}
-  std_basis::Vector{Int}
-  scpcomb::SCPComb
-
-  orders::Vector{Int}
-  ng::Vector{Int}
-  nsg::Vector{Int}
-  g::Vector{Vector{T}}
-  prime::S
-
-  is_symmetric::BitArray{1}
-  operate_tmp::V
-
-  function ZLatAutoCtx(G::Vector{fmpz_mat})
-    z = new{fmpz, fmpz_mat, fmpz_mat}()
-    z.G = G
-    z.Gtr = fmpz_mat[transpose(g) for g in G]
-    z.dim = nrows(G[1])
-    z.is_symmetric = falses(length(G))
-    z.operate_tmp = zero_matrix(FlintZZ, 1, ncols(G[1]))
-
-    for i in 1:length(z.G)
-      z.is_symmetric[i] = is_symmetric(z.G[i])
-    end
-
-    return z
-  end
-
-  function ZLatAutoCtx{S, T, V}() where {S, T, V}
-    return new{S, T, V}()
-  end
-end
-
 function Base.show(io::IO, C::ZLatAutoCtx)
   print(io, "Automorphism context for ", C.G)
 end
@@ -222,7 +159,7 @@ function AbstractAlgebra.is_symmetric(M::MatElem)
   return true
 end
 
-function init(C::ZLatAutoCtx, auto::Bool = true, bound::fmpz = fmpz(-1), use_dict::Bool = true)
+function init(C::ZLatAutoCtx, auto::Bool = true, bound::ZZRingElem = ZZRingElem(-1), use_dict::Bool = true)
   # Compute the necessary short vectors
 
   r = length(C.G)
@@ -240,9 +177,9 @@ function init(C::ZLatAutoCtx, auto::Bool = true, bound::fmpz = fmpz(-1), use_dic
 
   @vtime :Lattice 1 V = _short_vectors_gram_integral(Vector, C.G[1], bound)
 
-  vectors = Vector{fmpz_mat}(undef, length(V))
+  vectors = Vector{ZZMatrix}(undef, length(V))
 
-  lengths = Vector{Vector{fmpz}}(undef, length(V))
+  lengths = Vector{Vector{ZZRingElem}}(undef, length(V))
 
   tmp = zero_matrix(FlintZZ, 1, n)
 
@@ -260,7 +197,7 @@ function init(C::ZLatAutoCtx, auto::Bool = true, bound::fmpz = fmpz(-1), use_dic
 
     vfmpz = matrix(FlintZZ, 1, n, v)
 
-    w = Vector{fmpz}(undef, r)
+    w = Vector{ZZRingElem}(undef, r)
     w[1] = numerator(cand[2])
     for k in 2:r
       w[2] = _norm(vfmpz, C.G[k], tmp)
@@ -301,7 +238,7 @@ function init(C::ZLatAutoCtx, auto::Bool = true, bound::fmpz = fmpz(-1), use_dic
 
   #
 
-  C.v = Vector{fmpz_mat}(undef, length(C.G))
+  C.v = Vector{ZZMatrix}(undef, length(C.G))
 
   for i in 1:length(C.G)
     A = zero_matrix(FlintZZ, length(C.V), dim(C))
@@ -323,16 +260,16 @@ function init(C::ZLatAutoCtx, auto::Bool = true, bound::fmpz = fmpz(-1), use_dic
     end
   end
 
-  C.g = Vector{Vector{fmpz_mat}}(undef, dim(C))
+  C.g = Vector{Vector{ZZMatrix}}(undef, dim(C))
   for i in 1:dim(C)
-    C.g[i] = fmpz_mat[]
+    C.g[i] = ZZMatrix[]
   end
   C.ng = zeros(Int, dim(C))
   C.nsg = zeros(Int, dim(C))
   C.orders = Vector{Int}(undef, dim(C))
 
   # -Id is always an automorphism
-  C.g[1] = fmpz_mat[-identity_matrix(FlintZZ, dim(C))]
+  C.g[1] = ZZMatrix[-identity_matrix(FlintZZ, dim(C))]
   C.ng[1] = 1
 
   # Calculate orbit lengths
@@ -343,7 +280,7 @@ function init(C::ZLatAutoCtx, auto::Bool = true, bound::fmpz = fmpz(-1), use_dic
     nH += C.ng[i]
   end
 
-  H = Vector{fmpz_mat}(undef, nH)
+  H = Vector{ZZMatrix}(undef, nH)
 
   if auto
     for i in 1:dim(C)
@@ -368,16 +305,20 @@ end
 
 # The following functions tries to initialize a ZLatAutoCtx with entries in Int.
 # The return value is flag, Csmall
-function try_init_small(C::ZLatAutoCtx, auto::Bool = true, bound::fmpz = fmpz(-1), use_dict::Bool = true)
+function try_init_small(C::ZLatAutoCtx, auto::Bool = true, bound::ZZRingElem = ZZRingElem(-1), use_dict::Bool = true)
   # Compute the necessary short vectors
   @vprint :Lattice 1 "Computing short vectors of length $max\n"
-  automorphism_mode = bound == fmpz(-1)
+  automorphism_mode = bound == ZZRingElem(-1)
 
   Csmall = ZLatAutoCtx{Int, Matrix{Int}, Vector{Int}}()
 
   if bound == -1
     bound = maximum(diagonal(C.G[1]))
-    Csmall.max = Int(bound)
+    if fits(Int, bound)
+      Csmall.max = Int(bound)
+    else
+      return false, Csmall
+    end
   else
     Csmall.max = -1
   end
@@ -598,7 +539,7 @@ end
 #		}
 #	}
 
-function compute_short_vectors(C::ZLatAutoCtx{Int, Matrix{Int}, Vector{Int}}, max = fmpz(-1))
+function compute_short_vectors(C::ZLatAutoCtx{Int, Matrix{Int}, Vector{Int}}, max = ZZRingElem(-1))
   #V = enumerate_using_gram(G, R(max))
 
   if max == -1
@@ -610,7 +551,7 @@ function compute_short_vectors(C::ZLatAutoCtx{Int, Matrix{Int}, Vector{Int}}, ma
   return V
 end
 
-function compute_short_vectors(C::ZLatAutoCtx, max::fmpz = fmpz(-1))
+function compute_short_vectors(C::ZLatAutoCtx, max::ZZRingElem = ZZRingElem(-1))
   #V = enumerate_using_gram(G, R(max))
 
   if max == -1
@@ -619,10 +560,10 @@ function compute_short_vectors(C::ZLatAutoCtx, max::fmpz = fmpz(-1))
   @vprint :Lattice 1 "Computing short vectors of actual length $max\n"
   V = _short_vectors_gram_integral(Vector, C.G[1], max)
   n = ncols(C.G[1])
-  C.V = Vector{fmpz_mat}(undef, length(V))
-  C.V_length = Vector{Vector{fmpz}}(undef, length(V))
+  C.V = Vector{ZZMatrix}(undef, length(V))
+  C.V_length = Vector{Vector{ZZRingElem}}(undef, length(V))
   for i in 1:length(V)
-    z = Vector{fmpz}(undef, length(C.G))
+    z = Vector{ZZRingElem}(undef, length(C.G))
     z[1] = V[i][2]
     m = matrix(FlintZZ, 1, n, V[i][1])
     mt = transpose(m)
@@ -637,10 +578,10 @@ function compute_short_vectors(C::ZLatAutoCtx, max::fmpz = fmpz(-1))
   return C
 end
 
-function _get_vectors_of_length(G::Union{fmpz_mat, FakeFmpqMat}, max::fmpz)
+function _get_vectors_of_length(G::Union{ZZMatrix, FakeFmpqMat}, max::ZZRingElem)
   C = enum_ctx_from_gram(G)
   enum_ctx_start(C, max)
-  res = Tuple{fmpz_mat, fmpz}[]
+  res = Tuple{ZZMatrix, ZZRingElem}[]
   while enum_ctx_next(C)
     push!(res, (deepcopy(C.x), (C.x * G * transpose(C.x))[1, 1]))
     push!(res, (-deepcopy(C.x), (C.x * G * transpose(C.x))[1, 1]))
@@ -648,7 +589,7 @@ function _get_vectors_of_length(G::Union{fmpz_mat, FakeFmpqMat}, max::fmpz)
   return res
 end
 
-function _get_vectors_of_length(G::ZLat, max::fmpz)
+function _get_vectors_of_length(G::ZZLat, max::ZZRingElem)
   return _get_vectors_of_length(FakeFmpqMat(gram_matrix(G)), max)
 end
 
@@ -741,7 +682,7 @@ end
 #  return z
 #end
 #
-#function _dot_product(V::fmpz_mat, M, i)
+#function _dot_product(V::ZZMatrix, M, i)
 #  z = zero(base_ring(V))
 #  for j in 1:length(V)
 #    z = z + V[1, j] * M[i, j]
@@ -868,11 +809,11 @@ function _operate(point, A::Matrix{Int}, V)
   return _operate(point, A, V, zeros(Int, size(A, 2)), sorted)
 end
 
-function _operate(point, A::fmpz_mat, V)
+function _operate(point, A::ZZMatrix, V)
   return _operate(point, A, V, zero_matrix(FlintZZ, 1, ncols(A)))
 end
 
-Base.replace!(::typeof(-), m::fmpz_mat) = -m
+Base.replace!(::typeof(-), m::ZZMatrix) = -m
 
 function _operate(point, A, V, tmp)
 # 	V.v is a sorted list of length V.n of vectors
@@ -882,7 +823,7 @@ function _operate(point, A, V, tmp)
   tmp = _vec_times_matrix!(tmp, V[point], A)
   #w = V[abs(point)] * A
   #if point < 0
-  #  if tmp isa fmpz_mat
+  #  if tmp isa ZZMatrix
   #    for i in 1:ncols(tmp)
   #      tmp[1, i] = -tmp[1, i]
   #    end
@@ -924,7 +865,7 @@ function _find_point(w::Vector{Int}, V)
   end
 end
 
-function _find_point(w::fmpz_mat, V)
+function _find_point(w::ZZMatrix, V)
   positive = false
   for k in 1:length(w)
     if !iszero(w[1, k])
@@ -952,7 +893,7 @@ function _find_point(w::fmpz_mat, V)
   end
 end
 
-function _orbitlen_naive(point::Int, orblen::Int, G::Vector{fmpz_mat}, nG::Int, V)
+function _orbitlen_naive(point::Int, orblen::Int, G::Vector{ZZMatrix}, nG::Int, V)
   working_list = Int[point]
   orbit = Int[point]
   while !isempty(working_list)
@@ -1142,7 +1083,7 @@ function _get_generators(C::ZLatAutoCtx{S, T, U}) where {S, T, U}
 
   gens = T[]
 
-  orde = prod(fmpz.(C.orders))
+  orde = prod(ZZRingElem.(C.orders))
 
   for i in 1:dim(C)
     for j in (C.nsg[i] + 1):C.ng[i]
@@ -1201,11 +1142,11 @@ function cand(candidates, I, x, C::ZLatAutoCtx{S, T, U}, comb) where {S, T, U}
     rank = com.rank
     n = com.list.n
     # xvec is the list of vector sums which are computed with respect to the partial basis in x
-    xvec = Vector{Vector{fmpz}}(undef, n + 1)
+    xvec = Vector{Vector{ZZRingElem}}(undef, n + 1)
     for i in 1:(n + 1)
-      xvec[i] = Vector{fmpz}(undef, dim)
+      xvec[i] = Vector{ZZRingElem}(undef, dim)
       for j in 1:dim
-        xvec[i][j] = zero(fmpz)
+        xvec[i][j] = zero(ZZRingElem)
       end
     end
 #/* xbase should be a basis for the lattice generated by the vectors in xvec,
@@ -1417,7 +1358,7 @@ function cand(candidates, I, x, C::ZLatAutoCtx{S, T, U}, comb) where {S, T, U}
     end
     comcoi = com.coeff[i]
     for j in 1:dim
-      vj = zero(fmpz)
+      vj = zero(ZZRingElem)
       for k in 1:rank
         vj += comcoi[k] * xbase[k][j]
       end
@@ -1649,7 +1590,7 @@ function stabil(x1, x2, per, G, V, C)
   X2 = zero_matrix(FlintZZ, dim, dim)
   x = Vector{Int}(undef, dim)
   for i in 1:dim
-    x[i] = _operate(x1[i], G, V, C.operate_tmp) # fmpz case
+    x[i] = _operate(x1[i], G, V, C.operate_tmp) # ZZRingElem case
   end
 
   XG = matgen(x, dim, per, V)
@@ -1678,7 +1619,7 @@ function stabil(x1, x2, per, G::Matrix{Int}, V, C)
   return SS
 end
 
-fmpz_mat(M::Matrix{Int}) = matrix(FlintZZ, M)
+ZZMatrix(M::Matrix{Int}) = matrix(FlintZZ, M)
 
 zero_matrix(::Type{Int}, r, c) = zeros(Int, r, c)
 
@@ -1692,11 +1633,11 @@ function _one(::Type{Matrix{Int}}, n::Int)
   return z
 end
 
-_one(::Type{fmpz_mat}, n::Int) = identity_matrix(FlintZZ, n)
+_one(::Type{ZZMatrix}, n::Int) = identity_matrix(FlintZZ, n)
 
 _zero(::Type{Matrix{Int}}, n::Int, m::Int) = zeros(Int, n, m)
 
-_zero(::Type{fmpz_mat}, n::Int, m::Int) = zero_matrix(FlintZZ, n, m)
+_zero(::Type{ZZMatrix}, n::Int, m::Int) = zero_matrix(FlintZZ, n, m)
 
 function matgen(x, dim, per, v)
 #/*****	generates the matrix X which has as row
@@ -1726,7 +1667,7 @@ function _try_iso_setup_small(Gi, Go)
   fl, Cismall = try_init_small(Ci, false)
   if fl
     Co = ZLatAutoCtx(Go)
-    fl2, Cosmall = try_init_small(Co, true, fmpz(Cismall.max))
+    fl2, Cosmall = try_init_small(Co, true, ZZRingElem(Cismall.max))
     if fl2
       return true, Cismall, Cosmall
     end
@@ -2015,13 +1956,13 @@ end
 function assert_auto(C, order)
   G, o = _get_generators(C)
   if o != order
-    throw(error("Order $o. Expected $order"))
+    error("Order $o. Expected $order")
   end
 
   for g in G
     for U in C.G
       if g * U * g' != U
-        throw(error("Not an isometry.\nElement:\n $g\nGram matrix:\n$U"))
+        error("Not an isometry.\nElement:\n $g\nGram matrix:\n$U")
       end
     end
   end
@@ -2040,7 +1981,7 @@ end
 #
 ################################################################################
 
-function _dot_product_with_column!(t::fmpz, v::fmpz_mat, A::fmpz_mat, k::Int, tmp::fmpz)
+function _dot_product_with_column!(t::ZZRingElem, v::ZZMatrix, A::ZZMatrix, k::Int, tmp::ZZRingElem)
   mul!(t, v[1, 1], A[1, k])
   for i in 2:ncols(v)
     mul!(tmp, v[1, i], A[i, k])
@@ -2049,13 +1990,13 @@ function _dot_product_with_column!(t::fmpz, v::fmpz_mat, A::fmpz_mat, k::Int, tm
   return t
 end
 
-function _dot_product_with_column(v::fmpz_mat, A::fmpz_mat, k::Int, tmp::fmpz = zero(FlintZZ))
+function _dot_product_with_column(v::ZZMatrix, A::ZZMatrix, k::Int, tmp::ZZRingElem = zero(FlintZZ))
   t = zero(FlintZZ)
   t = _dot_product_with_column!(t, v, A, k, tmp)
   return t
 end
 
-function _dot_product_with_row!(t::fmpz, v::fmpz_mat, A::fmpz_mat, k::Int, tmp::fmpz)
+function _dot_product_with_row!(t::ZZRingElem, v::ZZMatrix, A::ZZMatrix, k::Int, tmp::ZZRingElem)
   mul!(t, v[1, 1], A[k, 1])
   for i in 2:ncols(v)
     mul!(tmp, v[1, i], A[k, i])
@@ -2064,7 +2005,7 @@ function _dot_product_with_row!(t::fmpz, v::fmpz_mat, A::fmpz_mat, k::Int, tmp::
   return t
 end
 
-function _dot_product_with_row(v::fmpz_mat, A::fmpz_mat, k::Int, tmp::fmpz = zero(FlintZZ))
+function _dot_product_with_row(v::ZZMatrix, A::ZZMatrix, k::Int, tmp::ZZRingElem = zero(FlintZZ))
   t = zero(FlintZZ)
   t = _dot_product_with_row!(t, v, A, k, tmp)
   return t
@@ -2130,13 +2071,13 @@ function _norm(v::Vector{Int}, M::Matrix{Int}, tmp::Vector{Int} = Vector{Int}(un
   return dot(v, tmp)
 end
 
-function _norm(v::fmpz_mat, M::fmpz_mat, tmp::fmpz_mat = zero_matrix(FlintZZ, 1, ncols(v)))
+function _norm(v::ZZMatrix, M::ZZMatrix, tmp::ZZMatrix = zero_matrix(FlintZZ, 1, ncols(v)))
   mul!(tmp, v, M)
-  return (v * tmp')[1, 1]
+  return (v * transpose(tmp))[1, 1]
 end
 
-function _dot_product(v::fmpz_mat, M::fmpz_mat, w::fmpz_mat)
-  return (v * M * w')[1, 1]
+function _dot_product(v::ZZMatrix, M::ZZMatrix, w::ZZMatrix)
+  return (v * M * transpose(w))[1, 1]
 end
 
 #
@@ -2164,7 +2105,7 @@ function _psolve(X, A, B, n, p)
       j += 1
     end
     if j == n + 1
-      throw(error("Not possible"))
+      error("Not possible")
     end
 
     if j != i
@@ -2197,11 +2138,11 @@ end
 
 ###########################################
 #
-#  isless for fmpz_mat (vectors)
+#  isless for ZZMatrix (vectors)
 #
 ##########################################
 
-function _isless(x::fmpz_mat, y::fmpz_mat)
+function _isless(x::ZZMatrix, y::ZZMatrix)
   i = 0
   c = ncols(x)
   while i < c
@@ -2216,7 +2157,7 @@ function _isless(x::fmpz_mat, y::fmpz_mat)
 end
 
 # should do this more C style
-max_nbits(v::fmpz_mat) = maximum([nbits(v[1, i]) for i in 1:ncols(v)])
+max_nbits(v::ZZMatrix) = maximum([nbits(v[1, i]) for i in 1:ncols(v)])
 
 # Some tests that I need to add:
 #

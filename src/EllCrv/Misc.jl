@@ -39,8 +39,8 @@
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    squaredivisors(n::fmpz) -> Iterator
+@doc raw"""
+    squaredivisors(n::ZZRingElem) -> Iterator
 
 Computes the numbers whose square divides a given number $n$. It is assumed
 that $n$ is not zero.
@@ -56,15 +56,15 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    zeros(f::fmpz_poly) -> Vector{fmpz}
+@doc raw"""
+    zeros(f::ZZPolyRingElem) -> Vector{ZZRingElem}
 
 Computes the integer zeros of a given polynomial $f$.
 """
-function zeros(f::fmpz_poly)
+function zeros(f::ZZPolyRingElem)
 
   fac = factor(f)
-  zeros = Nemo.fmpz[]
+  zeros = Nemo.ZZRingElem[]
 
     # check if there are monic linear factors <-> zeros
   for i in fac
@@ -77,15 +77,15 @@ function zeros(f::fmpz_poly)
 end
 
 
-# @doc Markdown.doc"""
-#     quadroots(a::fmpz, b::fmpz, c::fmpz, p::fmpz) -> Bool
+# @doc raw"""
+#     quadroots(a::ZZRingElem, b::ZZRingElem, c::ZZRingElem, p::ZZRingElem) -> Bool
 #
 # Returns true if the quadratic congruence of the quadratic polynomial
 # $ax^2 + bx + c = 0$ has a root modulo $p$.
 # """
 function quadroots(a, b, c, p)
   F_p = GF(p, cached = false)
-  R, x = PolynomialRing(F_p, "x", cached = false)
+  R, x = polynomial_ring(F_p, "x", cached = false)
   f = F_p(a)*x^2 + F_p(b)*x + F_p(c)
 
   if degree(f) == -1
@@ -110,8 +110,8 @@ end
 
 function quadroots(a::nf_elem, b::nf_elem, c::nf_elem, pIdeal:: NfOrdIdl)
   R = order(pIdeal)
-  F, phi = ResidueField(R, pIdeal)
-  P, x = PolynomialRing(F, "x", cached = false)
+  F, phi = residue_field(R, pIdeal)
+  P, x = polynomial_ring(F, "x", cached = false)
   
   t = [phi(R(numerator(s)))//phi(R(denominator(s))) for s in [a, b, c]]
   
@@ -137,15 +137,15 @@ function quadroots(a::nf_elem, b::nf_elem, c::nf_elem, pIdeal:: NfOrdIdl)
   end
 end
 
-@doc Markdown.doc"""
-    nrootscubic(b::fmpz, c::fmpz, d::fmpz, p::fmpz) -> fmpz
+@doc raw"""
+    nrootscubic(b::ZZRingElem, c::ZZRingElem, d::ZZRingElem, p::ZZRingElem) -> ZZRingElem
 
 Returns the number of roots of the polynomial $x^3 + bx^2 + cx + d = 0$
 modulo $p$.
 """
 function nrootscubic(b, c, d, p)
   F_p = GF(p, cached = false)
-  R, x = PolynomialRing(F_p, "x")
+  R, x = polynomial_ring(F_p, "x")
   f = x^3 + F_p(b)*x^2 + F_p(c)*x + F_p(d)
 
   fac = factor(f)
@@ -170,8 +170,8 @@ end
 
 function nrootscubic(b::nf_elem, c::nf_elem, d::nf_elem, pIdeal:: NfOrdIdl)
   R = order(pIdeal)
-  F, phi = ResidueField(R, pIdeal)
-  P, x = PolynomialRing(F, "x", cached = false)
+  F, phi = residue_field(R, pIdeal)
+  P, x = polynomial_ring(F, "x", cached = false)
   
   t = [phi(R(numerator(s)))//phi(R(denominator(s))) for s in [b,c,d]]
 
@@ -204,7 +204,7 @@ function smod(a::T, b::S) where {T, S}
   return z
 end
 
-@doc Markdown.doc"""
+@doc raw"""
 	normal_basis(K::FinField, L::FinField) -> FinFieldElem
 
 Return a normal element of $L$ over $K = \mathbf F_q$, i.e. an
@@ -234,39 +234,39 @@ function normal_basis(K::T, L::T) where T<:FinField
 end
 
 
-jacobi_symbol(x::Integer, y::fmpz) = jacobi_symbol(fmpz(x), y)
+jacobi_symbol(x::Integer, y::ZZRingElem) = jacobi_symbol(ZZRingElem(x), y)
 
 
 function mod(a::nf_elem, I::NfOrdIdl)
   R = order(I)
-  k, phi = ResidueField(R, I)
+  k, phi = residue_field(R, I)
   a_num = phi(R(numerator(a)))
   a_denom = phi(R(denominator(a)))
   b = a_num//a_denom
   return preimage(phi, b)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
 	inv_mod(a::NfOrdElem, I::NfOrdIdl) -> NfOrdElem
 
 Return a lift of the inverse of an element modulo a prime ideal.
 """
 function Base.invmod(a::NfOrdElem, I::NfOrdIdl)
   R = order(I)
-  k, phi = ResidueField(R, I)
+  k, phi = residue_field(R, I)
   return preimage(phi, inv(phi(R(a))))
 end
 
 function Base.invmod(a::nf_elem, I::NfOrdIdl)
   R = order(I)
-  k, phi = ResidueField(R, I)
+  k, phi = residue_field(R, I)
   a_num = phi(R(numerator(a)))
   a_denom = phi(R(denominator(a)))
   b = a_num//a_denom
   return preimage(phi, inv(b))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
 	pth_root_mod(a::NfOrdElem, I::NfOrdIdl) -> NfOrdElem
 
 Return a lift of the pth root of an element mod a prime ideal lying over p.
@@ -274,14 +274,14 @@ Return a lift of the pth root of an element mod a prime ideal lying over p.
 function pth_root_mod(a::NfOrdElem, pIdeal::NfOrdIdl)
   R = order(pIdeal)
   p = pIdeal.gen_one
-  k, phi = ResidueField(R, pIdeal)
+  k, phi = residue_field(R, pIdeal)
   return preimage(phi, pth_root(phi(R(a))))
 end
 
 function pth_root_mod(a::nf_elem, pIdeal::NfOrdIdl)
   R = order(pIdeal)
   p = pIdeal.gen_one
-  k, phi = ResidueField(R, pIdeal)
+  k, phi = residue_field(R, pIdeal)
   a_num = phi(R(numerator(a)))
   a_denom = phi(R(denominator(a)))
   b = a_num//a_denom

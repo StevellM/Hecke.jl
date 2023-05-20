@@ -4,20 +4,6 @@
 #
 ################################################################################
 
-# Iterate over the lines in K^n, that is, over the points of projective
-# space P^(n-1)(K).
-#
-# Important: In the prime case, this must always be lexicographically ordered
-
-mutable struct LineEnumCtx{T, S}
-  K::T
-  a::S # primitive element
-  dim::Int
-  depth::Int
-  v::Vector{S}
-  length::BigInt
-end
-
 # We iterate through K by adding 1 in the prime field case and by multiplying
 # with a primitive element in the general case.
 
@@ -34,7 +20,7 @@ function LineEnumCtx(K::T, n) where {T}
   return LineEnumCtx{T, elem_type(T)}(K, a, dim, depth, v, length)
 end
 
-function LineEnumCtx(K::T, n::Int) where {T <: Union{Nemo.GaloisField, Nemo.GaloisFmpzField}}
+function LineEnumCtx(K::T, n::Int) where {T <: Union{fpField, FpField}}
   a = zero(K)
   v = Vector{elem_type(T)}(undef, n)
   for i in 1:n
@@ -104,7 +90,7 @@ function next(P::LineEnumCtx)
   return P.v
 end
 
-function next(P::LineEnumCtx{T, S}) where {T <: Union{Nemo.GaloisField, Nemo.GaloisFmpzField}, S}
+function next(P::LineEnumCtx{T, S}) where {T <: Union{fpField, FpField}, S}
   if depth(P) > 0
     i = dim(P)
     while true
@@ -176,7 +162,7 @@ end
 
 # For prime fields
 function Base.iterate(P::LineEnumCtx{T, S}, state) where
-                                  {T <: Union{Nemo.GaloisField, Nemo.GaloisFmpzField}, S}
+                                  {T <: Union{fpField, FpField}, S}
   if state >= P.length
     return nothing
   end
@@ -252,14 +238,14 @@ end
 #
 ################################################################################
 
-line_orbits(G::Vector{gfp_mat}) = _line_orbits(G)
+line_orbits(G::Vector{fpMatrix}) = _line_orbits(G)
 
-function line_orbits(G::Vector{T}) where {T <: MatElem{gfp_fmpz_elem}}
+function line_orbits(G::Vector{T}) where {T <: MatElem{FpFieldElem}}
   F = base_ring(G[1])
   p = modulus(F)
   k = nrows(G[1])
   if fits(UInt, p)
-    Fsmall = GF(UInt(p), cached = false)
+    Fsmall = Native.GF(UInt(p), cached = false)
     GG = Vector{dense_matrix_type(Fsmall)}(undef, length(G))
     let Fsmall = Fsmall
       for i in 1:length(G)
@@ -282,15 +268,15 @@ function line_orbits(G::Vector{T}) where {T <: MatElem{gfp_fmpz_elem}}
   end
 end
 
-function line_orbits(G::Vector{fq_nmod_mat})
+function line_orbits(G::Vector{fqPolyRepMatrix})
   F = base_ring(G[1])
   d = degree(F)
   k = nrows(G[1])
   if d == 1
     p = characteristic(F)
     @assert fits(UInt, p)
-    GFp = GF(UInt(p), cached = false)
-    GG = Vector{gfp_mat}(undef, length(G))
+    GFp = Native.GF(UInt(p), cached = false)
+    GG = Vector{fpMatrix}(undef, length(G))
     let GFp = GFp
       for i in 1:length(G)
         GG[i] = map_entries(x -> GFp(coeff(x, 0)), G[i])
@@ -312,7 +298,7 @@ function line_orbits(G::Vector{fq_nmod_mat})
   end
 end
 
-function line_orbits(G::Vector{fq_mat})
+function line_orbits(G::Vector{FqPolyRepMatrix})
   F = base_ring(G[1])
   a = gen(F)
   d = degree(F)
@@ -320,8 +306,8 @@ function line_orbits(G::Vector{fq_mat})
   k = nrows(G[1])
   if fits(UInt, p)
     f = defining_polynomial(F)
-    GFp = GF(UInt(p), cached = false)
-    GFpx, x = PolynomialRing(GFp, "x", cached = false)
+    GFp = Native.GF(UInt(p), cached = false)
+    GFpx, x = polynomial_ring(GFp, "x", cached = false)
     local fp
     let GFp = GFp
       fp = map_coefficients(a -> GFp(a.data), f, parent = GFpx)
@@ -332,7 +318,7 @@ function line_orbits(G::Vector{fq_mat})
       GG[i] = map_entries(b -> sum(coeff(b, i) * aa^i for i in 0:(d-1)), G[i])::dense_matrix_type(FF)
     end
     _res = line_orbits(GG)
-    res = Vector{Vector{fq}}(undef, length(_res))
+    res = Vector{Tuple{Vector{FqPolyRepFieldElem}, Int}}(undef, length(_res))
     for i in 1:length(res)
       t = _res[i][1]
       y = Vector{elem_type(F)}(undef, k)
@@ -347,36 +333,62 @@ function line_orbits(G::Vector{fq_mat})
   end
 end
 
-#function _line_orbits(G::Vector)
-#  K = base_ring(G[1])
-#  n = nrows(G[1])
-#  P = enumerate_lines(K, n)
-#  l = length(P)
-#  @vprint :GenRep 1 "Computing orbits of lines of total length $l over $K\n"
-#
-#  res = eltype(P)[]
-#
-#  newline = zero_matrix(K, 1, n)
-#  newline2 = zero_matrix(K, 1, n)
-#  ___isless = __isless(elem_type(K))
-#  
-#  for i in 1:l
-#    set!(newline, P[i])
-#    insorted(newline, res, lt = ___isless) && continue
-#
-#    push!(res, P[i])
-#    for i in 1:length(G)
-#      newline2 = mul!(newline2, newline, G[i])
-#      _normalize!(newline2)
-#      
-#      insorted(newline2, res, lt = ___isless) && continue
-#
-#      push!(res, P[i])
-#    end
-#    println(length(res))
-#  end
-#  return res
-#end
+function line_orbits(G::Vector{FqMatrix})
+  return _line_orbits(G)
+end
+
+function _line_orbits(G::Vector)
+  K = base_ring(G[1])
+  n = nrows(G[1])
+  P = enumerate_lines(K, n)
+  l = length(P)
+  @vprint :GenRep 1 "Computing orbits of lines of total length $l over $K\n"
+  lines = Vector{eltype(P)}(undef, l)
+  i = 1
+  for v in P
+    lines[i] = deepcopy(v)
+    i += 1
+  end
+
+  if !(K isa fpField && K isa FpField)
+    sort!(lines, lt = _isless)
+  end
+
+  res = Tuple{eltype(P), Int}[]
+
+  visited = trues(l)
+  sofar = zero(BigInt)
+  newline = zero_matrix(K, 1, n)
+  newline2 = zero_matrix(K, 1, n)
+  ___isless = __isless(elem_type(K)) # the comparison needs some
+                                     # temporary variables in some cases
+  while sofar < l
+    pt = findfirst(visited)
+    @assert pt !== nothing
+    visited[pt] = false
+    norb = 1
+    cnd = 1
+    orb = Int[pt]
+    while cnd <= norb
+      set!(newline, lines[orb[cnd]])
+      for i in 1:length(G)
+        newline2 = mul!(newline2, newline, G[i])
+        _normalize!(newline2)
+        m = searchsortedfirst(lines, newline2, lt = ___isless)
+        @assert m !== nothing
+        if visited[m]
+          visited[m] = false
+          norb += 1
+          push!(orb, m)
+        end
+      end
+      cnd += 1
+    end
+    push!(res, (lines[pt], norb))
+    sofar = sofar + norb
+  end
+  return res
+end
 
 ################################################################################
 #
@@ -397,14 +409,14 @@ end
 ################################################################################
 
 # gfp
-function set!(a::gfp_mat, z::Vector{gfp_elem})
+function set!(a::fpMatrix, z::Vector{fpFieldElem})
   @assert ncols(a) == length(z)
   for i in 1:length(z)
     Nemo.setindex_raw!(a, z[i].data, 1, i) # no reduction necessary
   end
 end
 
-function _normalize!(x::gfp_mat)
+function _normalize!(x::fpMatrix)
   R = base_ring(x)
   @GC.preserve x begin
     piv = 0
@@ -429,7 +441,7 @@ function _normalize!(x::gfp_mat)
   return x
 end
 
-function _isless(x::Vector{gfp_elem}, y::gfp_mat)
+function _isless(x::Vector{fpFieldElem}, y::fpMatrix)
   d = length(x)
   for i in 1:d
     xi = x[i]
@@ -441,19 +453,7 @@ function _isless(x::Vector{gfp_elem}, y::gfp_mat)
   return false
 end
 
-function _isless(x::gfp_mat, y::Vector{gfp_elem})
-  d = length(y)
-  for i in 1:d
-    xi = x[1, i]
-    yi = y[i]
-    if xi.data != yi.data
-      return xi.data < yi.data
-    end
-  end
-  return false
-end
-
-function _isless(x::Vector{gfp_elem}, y::Vector{gfp_elem})
+function _isless(x::Vector{fpFieldElem}, y::Vector{fpFieldElem})
   d = length(x)
   for i in 1:d
     xi = x[i]
@@ -467,14 +467,14 @@ end
 
 # gfp_fmpz
 
-function set!(a::MatElem, z::Vector{gfp_fmpz_elem})
+function set!(a::MatElem, z::Vector{FpFieldElem})
   @assert ncols(a) == length(z)
   for i in 1:length(z)
     a[1, i] = z[i]
   end
 end
 
-function _normalize!(x::MatElem{gfp_fmpz_elem})
+function _normalize!(x::MatElem{FpFieldElem})
   R = base_ring(x)
   @GC.preserve x begin
     piv = 0
@@ -499,7 +499,7 @@ function _normalize!(x::MatElem{gfp_fmpz_elem})
   return x
 end
 
-function _isless(x::Vector{gfp_fmpz_elem}, y::MatElem)
+function _isless(x::Vector{FpFieldElem}, y::MatElem)
   d = length(x)
   for i in 1:d
     xi = x[i]
@@ -511,7 +511,7 @@ function _isless(x::Vector{gfp_fmpz_elem}, y::MatElem)
   return false
 end
 
-function _isless(x::Vector{gfp_fmpz_elem}, y::Vector{gfp_fmpz_elem})
+function _isless(x::Vector{FpFieldElem}, y::Vector{FpFieldElem})
   d = length(x)
   for i in 1:d
     xi = x[i]
@@ -523,22 +523,22 @@ function _isless(x::Vector{gfp_fmpz_elem}, y::Vector{gfp_fmpz_elem})
   return false
 end
 
-# fq_nmod_mat
-function set!(a::fq_nmod_mat, z::Vector{fq_nmod})
+# fqPolyRepMatrix
+function set!(a::fqPolyRepMatrix, z::Vector{fqPolyRepFieldElem})
   @assert ncols(a) == length(z)
   for i in 1:length(z)
     ccall((:fq_nmod_mat_entry_set, libflint), Nothing,
-          (Ref{fq_nmod_mat}, Int, Int, Ref{fq_nmod}, Ref{FqNmodFiniteField}),
+          (Ref{fqPolyRepMatrix}, Int, Int, Ref{fqPolyRepFieldElem}, Ref{fqPolyRepField}),
           a, 0, i - 1, z[i], base_ring(a))
   end
 end
 
-function _isequal(x::fq_nmod_mat, y::Vector{fq_nmod})
+function _isequal(x::fqPolyRepMatrix, y::Vector{fqPolyRepFieldElem})
   R = base_ring(x)
   @GC.preserve x begin
     for i in 1:length(y)
-      el = ccall((:fq_nmod_mat_entry, libflint), Ptr{fq_nmod}, (Ref{fq_nmod_mat}, Int, Int), x, 0, i - 1)
-      b = ccall((:fq_nmod_equal, libflint), Cint, (Ref{fq_nmod}, Ptr{fq_nmod}, Ref{FqNmodFiniteField}), y[i], el, R)
+      el = ccall((:fq_nmod_mat_entry, libflint), Ptr{fqPolyRepFieldElem}, (Ref{fqPolyRepMatrix}, Int, Int), x, 0, i - 1)
+      b = ccall((:fq_nmod_equal, libflint), Cint, (Ref{fqPolyRepFieldElem}, Ptr{fqPolyRepFieldElem}, Ref{fqPolyRepField}), y[i], el, R)
       bb = Bool(b)
       if !bb
         return false
@@ -548,30 +548,30 @@ function _isequal(x::fq_nmod_mat, y::Vector{fq_nmod})
   return true
 end
 
-function _muleq!(x::fq_nmod_mat, y::fq_nmod)
+function _muleq!(x::fqPolyRepMatrix, y::fqPolyRepFieldElem)
   R = base_ring(x)
   @GC.preserve x begin
     for i in 1:nrows(x)
       for j in 1:ncols(x)
-        el = ccall((:fq_nmod_mat_entry, libflint), Ptr{fq_nmod}, (Ref{fq_nmod_mat}, Int, Int), x, i - 1, j - 1)
-        ccall((:fq_nmod_mul, libflint), Cvoid, (Ptr{fq_nmod}, Ptr{fq_nmod}, Ref{fq_nmod}, Ref{FqNmodFiniteField}), el, el, y, R)
+        el = ccall((:fq_nmod_mat_entry, libflint), Ptr{fqPolyRepFieldElem}, (Ref{fqPolyRepMatrix}, Int, Int), x, i - 1, j - 1)
+        ccall((:fq_nmod_mul, libflint), Cvoid, (Ptr{fqPolyRepFieldElem}, Ptr{fqPolyRepFieldElem}, Ref{fqPolyRepFieldElem}, Ref{fqPolyRepField}), el, el, y, R)
       end
     end
   end
   return x
 end
 
-function _normalize!(x::fq_nmod_mat)
+function _normalize!(x::fqPolyRepMatrix)
   R = base_ring(x)
   @GC.preserve x begin
     piv = 0
     local ell
     for j in 1:ncols(x)
-      el = ccall((:fq_nmod_mat_entry, libflint), Ptr{fq_nmod}, (Ref{fq_nmod_mat}, Int, Int), x, 0, j - 1)
-      b = ccall((:fq_nmod_is_zero, libflint), Cint, (Ptr{fq_nmod}, Ref{FqNmodFiniteField}), el, R)
+      el = ccall((:fq_nmod_mat_entry, libflint), Ptr{fqPolyRepFieldElem}, (Ref{fqPolyRepMatrix}, Int, Int), x, 0, j - 1)
+      b = ccall((:fq_nmod_is_zero, libflint), Cint, (Ptr{fqPolyRepFieldElem}, Ref{fqPolyRepField}), el, R)
       if !Bool(b)
         piv = j
-        ccall((:fq_nmod_inv, libflint), Cvoid, (Ptr{fq_nmod}, Ptr{fq_nmod}, Ref{FqNmodFiniteField}), el, el, R)
+        ccall((:fq_nmod_inv, libflint), Cvoid, (Ptr{fqPolyRepFieldElem}, Ptr{fqPolyRepFieldElem}, Ref{fqPolyRepField}), el, el, R)
         ell = el
         break
       end
@@ -580,19 +580,19 @@ function _normalize!(x::fq_nmod_mat)
     @assert piv != 0
 
     for j in (piv+1):ncols(x)
-      el = ccall((:fq_nmod_mat_entry, libflint), Ptr{fq_nmod},
-                 (Ref{fq_nmod_mat}, Int, Int), x, 0, j - 1)
+      el = ccall((:fq_nmod_mat_entry, libflint), Ptr{fqPolyRepFieldElem},
+                 (Ref{fqPolyRepMatrix}, Int, Int), x, 0, j - 1)
       ccall((:fq_nmod_mul, libflint), Cvoid,
-            (Ptr{fq_nmod}, Ptr{fq_nmod}, Ref{fq_nmod}, Ref{FqNmodFiniteField}),
+            (Ptr{fqPolyRepFieldElem}, Ptr{fqPolyRepFieldElem}, Ref{fqPolyRepFieldElem}, Ref{fqPolyRepField}),
             el, el, ell, R)
     end
     ccall((:fq_nmod_one, libflint), Cvoid,
-          (Ptr{fq_nmod}, Ref{FqNmodFiniteField}), ell, R)
+          (Ptr{fqPolyRepFieldElem}, Ref{fqPolyRepField}), ell, R)
   end
   return x
 end
 
-function _isless(x::fq_nmod, y::fq_nmod)
+function _isless(x::fqPolyRepFieldElem, y::fqPolyRepFieldElem)
   d = degree(parent(x)) - 1
   for i in 0:d
     xi = coeff(x, i)
@@ -604,12 +604,12 @@ function _isless(x::fq_nmod, y::fq_nmod)
   return false
 end
 
-@inline function _isless(x::fq_nmod, y::Ptr{fq_nmod})
+@inline function _isless(x::fqPolyRepFieldElem, y::Ptr{fqPolyRepFieldElem})
   d = degree(parent(x)) - 1
   for i in 0:d
     xi = coeff(x, i)
     yi = ccall((:nmod_poly_get_coeff_ui, libflint), UInt,
-               (Ptr{fq_nmod}, Int), y, i)
+               (Ptr{fqPolyRepFieldElem}, Int), y, i)
     if xi != yi
       return xi < yi
     end
@@ -617,7 +617,7 @@ end
   return false
 end
 
-function _isless(x::Vector{fq_nmod}, y::Vector{fq_nmod})
+function _isless(x::Vector{fqPolyRepFieldElem}, y::Vector{fqPolyRepFieldElem})
   d = length(x)
   for i in 1:d
     xi = x[i]
@@ -629,16 +629,16 @@ function _isless(x::Vector{fq_nmod}, y::Vector{fq_nmod})
   return false
 end
 
-function _isless(x::Vector{fq_nmod}, y::fq_nmod_mat)
+function _isless(x::Vector{fqPolyRepFieldElem}, y::fqPolyRepMatrix)
   d = length(x)
   R = base_ring(y)
   @GC.preserve y begin
     for i in 1:d
       xi = x[i]
-      el = ccall((:fq_nmod_mat_entry, libflint), Ptr{fq_nmod},
-                 (Ref{fq_nmod_mat}, Int, Int), y, 0, i - 1)
+      el = ccall((:fq_nmod_mat_entry, libflint), Ptr{fqPolyRepFieldElem},
+                 (Ref{fqPolyRepMatrix}, Int, Int), y, 0, i - 1)
       b = ccall((:fq_nmod_equal, libflint), Cint,
-                (Ref{fq_nmod}, Ptr{fq_nmod}, Ref{FqNmodFiniteField}), xi, el, R)
+                (Ref{fqPolyRepFieldElem}, Ptr{fqPolyRepFieldElem}, Ref{fqPolyRepField}), xi, el, R)
       if !Bool(b)
         return _isless(xi, el)
       end
@@ -647,25 +647,24 @@ function _isless(x::Vector{fq_nmod}, y::fq_nmod_mat)
   end
 end
 
-
-# fq
-function set!(a::fq_mat, z::Vector{fq})
+# FqPolyRepFieldElem
+function set!(a::FqPolyRepMatrix, z::Vector{FqPolyRepFieldElem})
   @assert ncols(a) == length(z)
   for i in 1:length(z)
     ccall((:fq_mat_entry_set, libflint), Nothing,
-          (Ref{fq_mat}, Int, Int, Ref{fq}, Ref{FqFiniteField}),
+          (Ref{FqPolyRepMatrix}, Int, Int, Ref{FqPolyRepFieldElem}, Ref{FqPolyRepField}),
           a, 0, i - 1, z[i], base_ring(a))
   end
 end
 
-function _isequal(x::fq_mat, y::Vector{fq})
+function _isequal(x::FqPolyRepMatrix, y::Vector{FqPolyRepFieldElem})
   R = base_ring(x)
   @GC.preserve x begin
     for i in 1:length(y)
-      el = ccall((:fq_mat_entry, libflint), Ptr{fq},
-                 (Ref{fq_mat}, Int, Int), x, 0, i - 1)
+      el = ccall((:fq_mat_entry, libflint), Ptr{FqPolyRepFieldElem},
+                 (Ref{FqPolyRepMatrix}, Int, Int), x, 0, i - 1)
       b = ccall((:fq_equal, libflint), Cint,
-                (Ref{fq}, Ptr{fq}, Ref{FqFiniteField}), y[i], el, R)
+                (Ref{FqPolyRepFieldElem}, Ptr{FqPolyRepFieldElem}, Ref{FqPolyRepField}), y[i], el, R)
       bb = Bool(b)
       if !bb
         return false
@@ -675,35 +674,35 @@ function _isequal(x::fq_mat, y::Vector{fq})
   return true
 end
 
-function _muleq!(x::fq_mat, y::fq)
+function _muleq!(x::FqPolyRepMatrix, y::FqPolyRepFieldElem)
   R = base_ring(x)
   @GC.preserve x begin
     for i in 1:nrows(x)
       for j in 1:ncols(x)
-        el = ccall((:fq_mat_entry, libflint), Ptr{fq},
-                   (Ref{fq_mat}, Int, Int), x, i - 1, j - 1)
+        el = ccall((:fq_mat_entry, libflint), Ptr{FqPolyRepFieldElem},
+                   (Ref{FqPolyRepMatrix}, Int, Int), x, i - 1, j - 1)
         ccall((:fq_mul, libflint), Cvoid,
-              (Ptr{fq}, Ptr{fq}, Ref{fq}, Ref{FqFiniteField}), el, el, y, R)
+              (Ptr{FqPolyRepFieldElem}, Ptr{FqPolyRepFieldElem}, Ref{FqPolyRepFieldElem}, Ref{FqPolyRepField}), el, el, y, R)
       end
     end
   end
   return x
 end
 
-function _normalize!(x::fq_mat)
+function _normalize!(x::FqPolyRepMatrix)
   R = base_ring(x)
   @GC.preserve x begin
     piv = 0
     local ell
     for j in 1:ncols(x)
-      el = ccall((:fq_mat_entry, libflint), Ptr{fq},
-                 (Ref{fq_mat}, Int, Int), x, 0, j - 1)
+      el = ccall((:fq_mat_entry, libflint), Ptr{FqPolyRepFieldElem},
+                 (Ref{FqPolyRepMatrix}, Int, Int), x, 0, j - 1)
       b = ccall((:fq_is_zero, libflint), Cint,
-                (Ptr{fq}, Ref{FqFiniteField}), el, R)
+                (Ptr{FqPolyRepFieldElem}, Ref{FqPolyRepField}), el, R)
       if !Bool(b)
         piv = j
         ccall((:fq_inv, libflint), Cvoid,
-              (Ptr{fq}, Ptr{fq}, Ref{FqFiniteField}), el, el, R)
+              (Ptr{FqPolyRepFieldElem}, Ptr{FqPolyRepFieldElem}, Ref{FqPolyRepField}), el, el, R)
         ell = el
         break
       end
@@ -712,23 +711,23 @@ function _normalize!(x::fq_mat)
     @assert piv != 0
 
     for j in (piv+1):ncols(x)
-      el = ccall((:fq_mat_entry, libflint), Ptr{fq},
-                 (Ref{fq_mat}, Int, Int), x, 0, j - 1)
+      el = ccall((:fq_mat_entry, libflint), Ptr{FqPolyRepFieldElem},
+                 (Ref{FqPolyRepMatrix}, Int, Int), x, 0, j - 1)
       ccall((:fq_mul, libflint), Cvoid,
-            (Ptr{fq}, Ptr{fq}, Ref{fq}, Ref{FqFiniteField}), el, el, ell, R)
+            (Ptr{FqPolyRepFieldElem}, Ptr{FqPolyRepFieldElem}, Ref{FqPolyRepFieldElem}, Ref{FqPolyRepField}), el, el, ell, R)
     end
-    ccall((:fq_one, libflint), Cvoid, (Ptr{fq}, Ref{FqFiniteField}), ell, R)
+    ccall((:fq_one, libflint), Cvoid, (Ptr{FqPolyRepFieldElem}, Ref{FqPolyRepField}), ell, R)
   end
   return x
 end
 
-function _isless(x::fq, y::fq, xi::fmpz = fmpz(), yi::fmpz = fmpz())
+function _isless(x::FqPolyRepFieldElem, y::FqPolyRepFieldElem, xi::ZZRingElem = ZZRingElem(), yi::ZZRingElem = ZZRingElem())
   d = degree(parent(x)) - 1
   for i in 0:d
     ccall((:fmpz_poly_get_coeff_fmpz, libflint), Cvoid,
-          (Ref{fmpz}, Ref{fq}, Int), xi, x, i)
+          (Ref{ZZRingElem}, Ref{FqPolyRepFieldElem}, Int), xi, x, i)
     ccall((:fmpz_poly_get_coeff_fmpz, libflint), Cvoid,
-          (Ref{fmpz}, Ref{fq}, Int), yi, y, i)
+          (Ref{ZZRingElem}, Ref{FqPolyRepFieldElem}, Int), yi, y, i)
     if xi != yi
       return xi < yi
     end
@@ -736,14 +735,14 @@ function _isless(x::fq, y::fq, xi::fmpz = fmpz(), yi::fmpz = fmpz())
   return false
 end
 
-@inline function _isless(x::fq, y::Ptr{fq}, xi::fmpz = fmpz(),
-                                            yi::fmpz = fmpz())
+@inline function _isless(x::FqPolyRepFieldElem, y::Ptr{FqPolyRepFieldElem}, xi::ZZRingElem = ZZRingElem(),
+                                            yi::ZZRingElem = ZZRingElem())
   d = degree(parent(x)) - 1
   for i in 0:d
     ccall((:fmpz_poly_get_coeff_fmpz, libflint), Cvoid,
-          (Ref{fmpz}, Ref{fq}, Int), xi, x, i)
+          (Ref{ZZRingElem}, Ref{FqPolyRepFieldElem}, Int), xi, x, i)
     ccall((:fmpz_poly_get_coeff_fmpz, libflint), Cvoid,
-          (Ref{fmpz}, Ptr{fq}, Int), yi, y, i)
+          (Ref{ZZRingElem}, Ptr{FqPolyRepFieldElem}, Int), yi, y, i)
     if xi != yi
       return xi < yi
     end
@@ -751,8 +750,8 @@ end
   return false
 end
 
-function _isless(x::Vector{fq}, y::Vector{fq}, tx::fmpz = fmpz(),
-                                               ty::fmpz = fmpz())
+function _isless(x::Vector{FqPolyRepFieldElem}, y::Vector{FqPolyRepFieldElem}, tx::ZZRingElem = ZZRingElem(),
+                                               ty::ZZRingElem = ZZRingElem())
   d = length(x)
   for i in 1:d
     xi = x[i]
@@ -764,16 +763,16 @@ function _isless(x::Vector{fq}, y::Vector{fq}, tx::fmpz = fmpz(),
   return false
 end
 
-function _isless(x::Vector{fq}, y::fq_mat, tx::fmpz = fmpz(), ty::fmpz = fmpz())
+function _isless(x::Vector{FqPolyRepFieldElem}, y::FqPolyRepMatrix, tx::ZZRingElem = ZZRingElem(), ty::ZZRingElem = ZZRingElem())
   d = length(x)
   R = base_ring(y)
   @GC.preserve y begin
     for i in 1:d
       xi = x[i]
-      el = ccall((:fq_mat_entry, libflint), Ptr{fq},
-                 (Ref{fq_mat}, Int, Int), y, 0, i - 1)
+      el = ccall((:fq_mat_entry, libflint), Ptr{FqPolyRepFieldElem},
+                 (Ref{FqPolyRepMatrix}, Int, Int), y, 0, i - 1)
       b = ccall((:fq_equal, libflint), Cint,
-                (Ref{fq}, Ptr{fq}, Ref{FqFiniteField}), xi, el, R)
+                (Ref{FqPolyRepFieldElem}, Ptr{FqPolyRepFieldElem}, Ref{FqPolyRepField}), xi, el, R)
       if !Bool(b)
         return _isless(xi, el, tx, ty)
       end
@@ -784,18 +783,149 @@ end
 
 # In some cases the _isless needs some temporary variables
 
-function __isless(::Type{fq})
-  t1, t2 = fmpz(), fmpz()
+function __isless(::Type{FqPolyRepFieldElem})
+  t1, t2 = ZZRingElem(), ZZRingElem()
+  return (x, y) -> _isless(x, y, t1, t2)
+end
+
+# FqFieldElem
+function set!(a::FqMatrix, z::Vector{FqFieldElem})
+  @assert ncols(a) == length(z)
+  for i in 1:length(z)
+    ccall((:fq_default_mat_entry_set, libflint), Nothing,
+          (Ref{FqMatrix}, Int, Int, Ref{FqFieldElem}, Ref{FqField}),
+          a, 0, i - 1, z[i], base_ring(a))
+  end
+end
+
+function _isequal(x::FqMatrix, y::Vector{FqFieldElem})
+  R = base_ring(x)
+  @GC.preserve x begin
+    for i in 1:length(y)
+      el = ccall((:fq_mat_entry, libflint), Ptr{FqFieldElem},
+                 (Ref{FqMatrix}, Int, Int), x, 0, i - 1)
+      b = ccall((:fq_default_equal, libflint), Cint,
+                (Ref{FqFieldElem}, Ptr{FqFieldElem}, Ref{FqField}), y[i], el, R)
+      bb = Bool(b)
+      if !bb
+        return false
+      end
+    end
+  end
+  return true
+end
+
+function _muleq!(x::FqMatrix, y::FqFieldElem)
+  R = base_ring(x)
+  @GC.preserve x begin
+    for i in 1:nrows(x)
+      for j in 1:ncols(x)
+        el = Nemo.fq_default_mat_entry_ptr(x, i, j)
+        ccall((:fq_default_mul, libflint), Cvoid,
+              (Ptr{FqFieldElem}, Ptr{FqFieldElem}, Ref{FqFieldElem}, Ref{FqField}), el, el, y, R)
+      end
+    end
+  end
+  return x
+end
+
+function _normalize!(x::FqMatrix)
+  R = base_ring(x)
+  piv = 0
+  local ell
+  @GC.preserve x begin
+    for j in 1:ncols(x)
+      el = Nemo.fq_default_mat_entry_ptr(x, 1, j)
+      b = ccall((:fq_default_is_zero, libflint), Cint,
+                (Ptr{FqFieldElem}, Ref{FqField}), el, R)
+      if !Bool(b)
+        piv = j
+        ccall((:fq_default_inv, libflint), Cvoid,
+              (Ptr{FqFieldElem}, Ptr{FqFieldElem}, Ref{FqField}), el, el, R)
+        ell = el
+        break
+      end
+    end
+
+    @assert piv != 0
+
+    for j in (piv+1):ncols(x)
+      el = Nemo.fq_default_mat_entry_ptr(x, 1, j)
+      ccall((:fq_default_mul, libflint), Cvoid,
+            (Ptr{FqFieldElem}, Ptr{FqFieldElem}, Ref{FqFieldElem}, Ref{FqField}), el, el, ell, R)
+    end
+    ccall((:fq_default_one, libflint), Cvoid, (Ptr{FqFieldElem}, Ref{FqField}), ell, R)
+  end
+  return x
+end
+
+function _isless(x::FqFieldElem, y::FqFieldElem, xi::ZZRingElem = ZZRingElem(), yi::ZZRingElem = ZZRingElem())
+  d = absolute_degree(parent(x)) - 1
+  for i in 0:d
+    ccall((:fq_default_get_coeff_fmpz, libflint), Cvoid,
+          (Ref{ZZRingElem}, Ref{FqFieldElem}, Int, Ref{FqField}), xi, x, i, parent(x))
+    ccall((:fq_default_get_coeff_fmpz, libflint), Cvoid,
+          (Ref{ZZRingElem}, Ref{FqFieldElem}, Int, Ref{FqField}), yi, y, i, parent(x))
+    if xi != yi
+      return xi < yi
+    end
+  end
+  return false
+end
+
+@inline function _isless(x::FqFieldElem, y::Ptr{FqFieldElem}, xi::ZZRingElem = ZZRingElem(),
+                                            yi::ZZRingElem = ZZRingElem())
+  R = parent(x)
+  d = degree(parent(x)) - 1
+  for i in 0:d
+    ccall((:fq_default_get_coeff_fmpz, libflint), Cvoid,
+          (Ref{ZZRingElem}, Ref{FqFieldElem}, Int, Ref{FqField}), xi, x, i, R)
+    ccall((:fq_default_get_coeff_fmpz, libflint), Cvoid,
+          (Ref{ZZRingElem}, Ptr{FqFieldElem}, Int, Ref{FqField}), yi, y, i, R)
+    if xi != yi
+      return xi < yi
+    end
+  end
+  return false
+end
+
+function _isless(x::Vector{FqFieldElem}, y::Vector{FqFieldElem}, tx::ZZRingElem = ZZRingElem(),
+                                               ty::ZZRingElem = ZZRingElem())
+  d = length(x)
+  for i in 1:d
+    xi = x[i]
+    yi = y[i]
+    if xi != yi
+      return _isless(xi, yi, tx, ty)
+    end
+  end
+  return false
+end
+
+function _isless(x::Vector{FqFieldElem}, y::FqMatrix, tx::ZZRingElem = ZZRingElem(), ty::ZZRingElem = ZZRingElem())
+  d = length(x)
+  R = base_ring(y)
+  @GC.preserve y begin
+    for i in 1:d
+      xi = x[i]
+      el = Nemo.fq_default_mat_entry_ptr(y, 1, i)
+      #el = ccall((:fq_default_mat_entry, libflint), Ptr{FqFieldElem},
+      #           (Ref{FqMatrix}, Int, Int), y, 0, i - 1)
+      b = ccall((:fq_default_equal, libflint), Cint,
+                (Ref{FqFieldElem}, Ptr{FqFieldElem}, Ref{FqField}), xi, el, R)
+      if !Bool(b)
+        return _isless(xi, el, tx, ty)
+      end
+    end
+    return false
+  end
+end
+
+# In some cases the _isless needs some temporary variables
+
+function __isless(::Type{FqFieldElem})
+  t1, t2 = ZZRingElem(), ZZRingElem()
   return (x, y) -> _isless(x, y, t1, t2)
 end
 
 __isless(::Type{T}) where {T} = _isless
-
-################################################################################
-#
-#  Defining polynomial for finite fields
-#
-################################################################################
-
-defining_polynomial(F::FqFiniteField) = minpoly(gen(F))
-

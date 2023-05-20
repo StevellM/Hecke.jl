@@ -10,15 +10,15 @@
 export formal_w, formal_y, formal_x, formal_differential_form, formal_log, formal_isogeny, formal_inverse
 
 #Can probably be made more efficient using Newton iteration like Sage does.
-@doc Markdown.doc"""
+@doc raw"""
     formal_w(E::EllCrv, prec::Int) -> LaurentSeriesElem
 
 Return the formal expansion of w = -1/y at infinity in terms of parameter z= -x/y up to O(z^prec).
 """
 function formal_w(E::EllCrv, prec::Int = 20)
   k = base_field(E)
-  kz, z = LaurentSeriesRing(k, prec, "z")
-  kzw, w = PolynomialRing(kz, "w")
+  kz, z = laurent_series_ring(k, prec, "z")
+  kzw, w = polynomial_ring(kz, "w")
   
   a1, a2, a3, a4, a6 = a_invars(E)
   
@@ -32,7 +32,7 @@ function formal_w(E::EllCrv, prec::Int = 20)
   
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     formal_y(E::EllCrv, prec::Int) -> LaurentSeriesElem
 
 Return the formal expansion of y at infinity in terms of parameter z= -x/y up to O(z^prec).
@@ -45,7 +45,7 @@ function formal_y(E::EllCrv, prec::Int = 20)
 
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     formal_x(E::EllCrv, prec::Int) -> LaurentSeriesElem
 
 Return the formal expansion of x at infinity in terms of parameter z= -x/y up to O(z^prec).
@@ -58,7 +58,7 @@ function formal_x(E::EllCrv, prec::Int = 20)
 
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     formal_differential_form(E::EllCrv, prec::Int) -> LaurentSeriesElem
 
 Return the formal expansion of f(z) where f(z)dz is the invariant differential dx/(2y + a_1 x + a_3)
@@ -73,7 +73,7 @@ function formal_differential_form(E::EllCrv, prec::Int = 20)
   return truncate(dx//(2*y + a1*x + a3), prec)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     formal_log(E::EllCrv, prec::Int) -> LaurentSeriesElem
 
 Return the formal logarithm of E as a power series at infinity in terms of the parameter z= -x/y up to O(z^prec).
@@ -86,7 +86,7 @@ end
 #=function formal_group_law(E::EllCrv, prec::Int = 20)
   k = base_field(E)
   a1, a2, a3, a4, a6 = a_invars(E)
-  ktt, (z1, z2) = PowerSeriesRing(k, prec + 1, ["z1", "z2"])
+  ktt, (z1, z2) = power_series_ring(k, prec + 1, ["z1", "z2"])
   
   #We now compute the slope lambda of the addition in the formal group law
   #Following Silverman
@@ -115,7 +115,7 @@ end
 end
 =#
 
-@doc Markdown.doc"""
+@doc raw"""
     formal_inverse(E::EllCrv, prec::Int) -> LaurentSeriesElem
 
 Return the formal power series i with the property that F(z, i(z)) = 0 where F is the formal group law of E
@@ -128,7 +128,7 @@ function formal_inverse(E::EllCrv, prec::Int = 20)
    return truncate(x //(y + a1*x + a3), prec)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     formal_isogeny(phi::Isogeny, prec::Int) -> LaurentSeriesElem
 
 Return the formal power series associated to the formal group homomorphism

@@ -35,7 +35,7 @@
 export NfRelNS, simple_extension
 
 #= trivial example
-Qx, x = PolynomialRing(FlintQQ)
+Qx, x = polynomial_ring(FlintQQ)
 QQ = number_field(x-1)[1]
 QQt, t = QQ["t"]
 K, gK = number_field([t^2-2, t^2-3, t^2-5, t^2-7])
@@ -137,9 +137,28 @@ end
 #
 ################################################################################
 
+function Base.show(io::IO, ::MIME"text/plain", a::NfRelNS)
+  @show_name(io, a)
+  @show_special(io, a)
+  io = pretty(io)
+  print(io, "Non-simple number field with defining polynomials [")
+  join(io, defining_polynomials(a), ", ")
+  println(io, "]")
+  print(io, Indent(), "over ", Lowercase())
+  show(io, MIME"text/plain"(), base_field(a))
+  print(io, Dedent())
+end
+
 function Base.show(io::IO, a::NfRelNS)
-  print(io, "non-simple Relative number field with defining polynomials ", a.pol)
-  print(io, " \n over ", base_field(a))
+  @show_name(io, a)
+  @show_special(io, a)
+  if get(io, :supercompact, false)
+    print(io, "Non-simple number field")
+  else
+    io = pretty(io)
+    print(io, "Non-simple number field of degree ", degree(a))
+    print(IOContext(io, :supercompact => true), " over ", Lowercase(), base_field(a))
+  end
 end
 
 function AbstractAlgebra.expressify(a::NfRelNSElem; context = nothing)
@@ -156,10 +175,10 @@ end
 #
 ################################################################################
 
-function NumberField(f::Vector{Generic.Poly{T}}, S::Vector{Symbol}; cached::Bool = false, check::Bool = true) where T
+function number_field(f::Vector{Generic.Poly{T}}, S::Vector{Symbol}; cached::Bool = false, check::Bool = true) where T
   length(S) == length(f) || error("number of names must match the number of polynomials")
   R = base_ring(f[1])
-  Rx, x = PolynomialRing(R, S)
+  Rx, x = polynomial_ring(R, S)
   K = NfRelNS(f, [f[i](x[i]) for i=1:length(f)], S)
   if check
     if !_check_consistency(K)
@@ -169,17 +188,17 @@ function NumberField(f::Vector{Generic.Poly{T}}, S::Vector{Symbol}; cached::Bool
   return K, gens(K)
 end
   
-function NumberField(f::Vector{Generic.Poly{T}}, s::String="_\$"; cached::Bool = false, check::Bool = true) where T
+function number_field(f::Vector{Generic.Poly{T}}, s::String="_\$"; cached::Bool = false, check::Bool = true) where T
   sym = Symbol(s)
   S = [Symbol("$s$i") for i=1:length(f)]
-  return NumberField(f, S, cached = cached, check = check)
+  return number_field(f, S, cached = cached, check = check)
 end
 
 function number_field(::Type{NfAbsNS}, L::NfRelNS{nf_elem})
   @assert degree(base_field(L)) == 1
   K = base_field(L)
-  Kx, _ = PolynomialRing(K, "x", cached = false)
-  pols = fmpq_poly[map_coefficients(FlintQQ, to_univariate(Kx, x), parent = Hecke.Globals.Qx) for x in L.pol]
+  Kx, _ = polynomial_ring(K, "x", cached = false)
+  pols = QQPolyRingElem[map_coefficients(FlintQQ, to_univariate(Kx, x), parent = Hecke.Globals.Qx) for x in L.pol]
   return number_field(pols, cached = false, check = false)
 end
 
@@ -204,9 +223,9 @@ end
 
 (K::NfRelNS)(a::Rational{T}) where {T <: Integer} = K(parent(K.pol[1])(a))
 
-(K::NfRelNS)(a::fmpz) = K(parent(K.pol[1])(a))
+(K::NfRelNS)(a::ZZRingElem) = K(parent(K.pol[1])(a))
 
-(K::NfRelNS)(a::fmpq) = K(parent(K.pol[1])(a))
+(K::NfRelNS)(a::QQFieldElem) = K(parent(K.pol[1])(a))
 
 (K::NfRelNS)() = zero(K)
 
@@ -250,7 +269,7 @@ function Base.:(*)(a::NfRelNSElem{T}, b::NfRelNSElem{T}) where {T}
   return parent(a)(data(a) * data(b))
 end
 
-function Base.:(*)(a::NfRelNSElem{T}, b::Union{Int, fmpz}) where {T}
+function Base.:(*)(a::NfRelNSElem{T}, b::Union{Int, ZZRingElem}) where {T}
   z = NfRelNSElem{T}(data(a)*b)
   z.parent = parent(a)
   return z
@@ -292,7 +311,7 @@ function Base.:(^)(a::NfRelNSElem{T}, b::Integer) where T
   end
 end
 
-function Base.:(^)(a::NfRelNSElem{T}, b::fmpz) where T
+function Base.:(^)(a::NfRelNSElem{T}, b::ZZRingElem) where T
   if b < 0
     return inv(a)^(-b)
   elseif b == 0
@@ -333,7 +352,7 @@ function Nemo.mul!(c::NfRelNSElem{T}, a::NfRelNSElem{T}, b::NfRelNSElem{T}) wher
   return c
 end
 
-function Nemo.mul!(c::NfRelNSElem{T}, a::NfRelNSElem{T}, b::Union{Int, fmpz}) where {T}
+function Nemo.mul!(c::NfRelNSElem{T}, a::NfRelNSElem{T}, b::Union{Int, ZZRingElem}) where {T}
   return a*b
 end
 
@@ -355,7 +374,7 @@ end
 # other stuff, trivia and non-trivia
 ###############################################################################
 
-function dot(v::Vector{T}, v1::Vector{fmpz}) where T <: NfRelNSElem
+function dot(v::Vector{T}, v1::Vector{ZZRingElem}) where T <: NfRelNSElem
   @assert length(v) == length(v1)
   el = data(v[1])*v1[1]
   for j = 2:length(v)
@@ -500,7 +519,7 @@ function minpoly_dense(a::NfRelNSElem)
     if n % (i-1) == 0 && rank(M) < i
       N = nullspace(sub(M, 1:i, 1:ncols(M))')
       @assert N[1] == 1
-      f = PolynomialRing(k,"t", cached=false)[1]([N[2][j, 1] for j=1:i])
+      f = polynomial_ring(k,"t", cached=false)[1]([N[2][j, 1] for j=1:i])
       return f*inv(leading_coefficient(f))
     end
     z *= a
@@ -528,8 +547,9 @@ function minpoly_sparse(a::NfRelNSElem)
   push!(M, SRow(z))
   z *= a
   sz = SRow(z)
+  local so::typeof(sz)
   i = 1
-  kt, t = PolynomialRing(k, "t", cached = false)
+  kt, t = polynomial_ring(k, "t", cached = false)
   f = kt()
   while true
     if n % i == 0
@@ -555,8 +575,8 @@ function minpoly_sparse(a::NfRelNSElem)
   end
 end
 
-function minpoly(a::NfRelNSElem)
-  return minpoly_sparse(a)
+function minpoly(a::NfRelNSElem{T}) where T
+  return minpoly_sparse(a)::AbstractAlgebra.Generic.Poly{T}
 end
 
 function inv(a::NfRelNSElem)
@@ -591,7 +611,7 @@ function assure_has_traces(L::NfRelNS{T}) where T
   n = length(gL)
   traces = Vector{Vector{T}}(undef, n)
   K = base_field(L)
-  Kx, _ = PolynomialRing(K, "x", cached = false)
+  Kx, _ = polynomial_ring(K, "x", cached = false)
   for i = 1:n
     pol = L.pol[i]
     d = total_degree(pol)
@@ -635,13 +655,13 @@ function tr_via_minpoly(a::NfRelNSElem)
   return -coeff(f, degree(f)-1)*div(degree(parent(a)), degree(f))
 end
 
-function resultant(f::MPolyElem, g::MPolyElem, i::Int)
+function resultant(f::MPolyRingElem, g::MPolyRingElem, i::Int)
   Kt = parent(f)
   gKt = gens(Kt)
   n = nvars(Kt)
   @assert i <= n
-  Ky, gKy = PolynomialRing(base_ring(Kt), n-1, cached = false)
-  Kyt, t = PolynomialRing(Ky, "t", cached = false)
+  Ky, gKy = polynomial_ring(base_ring(Kt), n-1, cached = false)
+  Kyt, t = polynomial_ring(Ky, "t", cached = false)
   vals = elem_type(Kyt)[]
   for j = 1:n
     if i == j
@@ -672,7 +692,7 @@ function rand(L::NfRelNS, rg::UnitRange)
 end
 
 
-function mod(a::NfRelNSElem{T}, p::fmpz) where T
+function mod(a::NfRelNSElem{T}, p::ZZRingElem) where T
   K = parent(a)
   b = data(a)
   Kx = parent(b)
@@ -725,7 +745,7 @@ function simple_extension(K::NfRelNS{T}; simplified::Bool = false, cached = true
   n = ngens(K)
   g = gens(K)
   if n == 1
-    kx, _ = PolynomialRing(base_field(K), "x", cached = false)
+    kx, _ = polynomial_ring(base_field(K), "x", cached = false)
     p = to_univariate(kx, K.pol[1])
     Ks, gKs = number_field(p, cached = cached, check = false)
     return Ks, hom(Ks, K, g[1], inverse = [gKs])
@@ -800,7 +820,7 @@ function Base.copy(a::NfRelElem)
 end
 
 function Nemo.discriminant(K::NfRelNS)
-  kx, _ = PolynomialRing(base_field(K), "x", cached = false)
+  kx, _ = polynomial_ring(base_field(K), "x", cached = false)
   p = [to_univariate(kx, x) for x = K.pol]
   d = discriminant(p[1])
   n = degree(p[1])
@@ -811,7 +831,7 @@ function Nemo.discriminant(K::NfRelNS)
   return d
 end
 
-function Nemo.discriminant(K::NfRelNS, ::FlintRationalField)
+function Nemo.discriminant(K::NfRelNS, ::QQField)
   d = norm(discriminant(K)) * discriminant(base_field(K))^degree(K)
   return d
 end

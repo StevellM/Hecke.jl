@@ -7,7 +7,7 @@ export ideal_class_monoid, is_locally_isomorphic, is_conjugate
 ###############################################################################
 
 # Stefano Marseglia "Computing the ideal class monoid of an order"
-@doc Markdown.doc"""
+@doc raw"""
     ideal_class_monoid(R::NfAbsOrd)
       -> Vector{FacElem{NfOrdFracIdl, NfOrdFracIdlSet}}
     ideal_class_monoid(R::AlgAssAbsOrd)
@@ -28,7 +28,7 @@ function ideal_class_monoid(R::T) where { T <: Union{ NfAbsOrd, AlgAssAbsOrd } }
 end
 
 # Stefano Marseglia "Computing the ideal class monoid of an order", Prop. 4.1
-@doc Markdown.doc"""
+@doc raw"""
     is_locally_isomorphic(I::NfAbsOrdIdl, J::NfAbsOrdIdl) -> Bool
     is_locally_isomorphic(I::NfFracOrdIdl, J::NfFracOrdIdl) -> Bool
     is_locally_isomorphic(I::AlgAssAbsOrdIdl, J::AlgAssAbsOrdIdl) -> Bool
@@ -44,7 +44,7 @@ function is_locally_isomorphic(I::T, J::T) where { T <: Union{ NfAbsOrdIdl, NfOr
 end
 
 # Stefano Marseglia "Computing the ideal class monoid of an order", Cor. 4.5
-@doc Markdown.doc"""
+@doc raw"""
     is_isomorphic_with_map(I::NfAbsOrdIdl, J::NfAbsOrdIdl) -> Bool, nf_elem
     is_isomorphic_with_map(I::NfFracOrdIdl, J::NfFracOrdIdl) -> Bool, nf_elem
     is_isomorphic_with_map(I::AlgAssAbsOrdIdl, J::AlgAssAbsOrdIdl) -> Bool, AbsAlgAssElem
@@ -72,7 +72,7 @@ function is_isomorphic_with_map(I::T, J::T) where { T <: Union{ NfAbsOrdIdl, NfO
   return true, divexact(_elem_in_algebra(a, copy = false), A(denominator(IJ, copy = false)))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     is_isomorphic(I::NfAbsOrdIdl, J::NfAbsOrdIdl) -> Bool, nf_elem
     is_isomorphic(I::NfFracOrdIdl, J::NfFracOrdIdl) -> Bool, nf_elem
     is_isomorphic(I::AlgAssAbsOrdIdl, J::AlgAssAbsOrdIdl) -> Bool, AbsAlgAssElem
@@ -170,9 +170,9 @@ function _icm_bar(R::T, S::T) where { T <: Union{ NfAbsOrd, AlgAssAbsOrd } }
     for I in ideals
       fac_elem2 = copy(fac_elem)
       if haskey(fac_elem2.fac, I)
-        fac_elem2.fac[I] += fmpz(1)
+        fac_elem2.fac[I] += ZZRingElem(1)
       else
-        fac_elem2.fac[I] = fmpz(1)
+        fac_elem2.fac[I] = ZZRingElem(1)
       end
       push!(result, fac_elem2)
     end
@@ -253,7 +253,7 @@ function ideal_to_matrix(I::Union{ NfAbsOrdIdl, NfOrdFracIdl })
   return M.num
 end
 
-function matrix_to_ideal(O::AlgAssAbsOrd, M::fmpz_mat)
+function matrix_to_ideal(O::AlgAssAbsOrd, M::ZZMatrix)
   f = charpoly(M)
   A = algebra(O)
   @assert dim(A) == degree(f) # Actually A == Q[x]/f
@@ -271,7 +271,7 @@ function matrix_to_ideal(O::AlgAssAbsOrd, M::fmpz_mat)
   return ideal_from_lattice_gens(algebra(O), O, result), result
 end
 
-function matrix_to_ideal(O::NfAbsOrd, M::fmpz_mat)
+function matrix_to_ideal(O::NfAbsOrd, M::ZZMatrix)
   f = charpoly(M)
   K = nf(O)
   @assert K.pol == parent(K.pol)(f)
@@ -287,14 +287,14 @@ function matrix_to_ideal(O::NfAbsOrd, M::fmpz_mat)
 end
 
 # Stefano Marseglia "Computing the ideal class monoid of an order"
-@doc Markdown.doc"""
-    is_conjugate(M::fmpz_mat, N::fmpz_mat) -> Bool, fmpz_mat
+@doc raw"""
+    is_conjugate(M::ZZMatrix, N::ZZMatrix) -> Bool, ZZMatrix
 
 Returns `true` and a matrix $U$ with $M = U\cdot N\cdot U^{-1}$ if such a
 matrix exists and `false` and $0$ otherwise.
 The characteristic polynomial of $M$ is required to be square-free.
 """
-function is_conjugate(M::fmpz_mat, N::fmpz_mat)
+function is_conjugate(M::ZZMatrix, N::ZZMatrix)
   Zx, x = FlintZZ["x"]
   f = charpoly(Zx, M)
   if f != charpoly(Zx, N)
@@ -312,12 +312,12 @@ function is_conjugate(M::fmpz_mat, N::fmpz_mat)
     return _isconjugate(equation_order(fields[1]), M, N)
   end
 
-  A, AtoK = direct_product(fields)::Tuple{AlgAss{fmpq}, Vector{AbsAlgAssToNfAbsMor{AlgAss{fmpq}, elem_type(AlgAss{fmpq}), AnticNumberField, fmpq_mat}}}
+  A, AtoK = direct_product(fields)::Tuple{AlgAss{QQFieldElem}, Vector{AbsAlgAssToNfAbsMor{AlgAss{QQFieldElem}, elem_type(AlgAss{QQFieldElem}), AnticNumberField, QQMatrix}}}
   O = _equation_order(A)
   return _isconjugate(O, M, N)
 end
 
-function _isconjugate(O::Union{ NfAbsOrd, AlgAssAbsOrd }, M::fmpz_mat, N::fmpz_mat)
+function _isconjugate(O::Union{ NfAbsOrd, AlgAssAbsOrd }, M::ZZMatrix, N::ZZMatrix)
   I, basisI = matrix_to_ideal(O, M)
   J, basisJ = matrix_to_ideal(O, N)
   t, a = is_isomorphic_with_map(J, I)

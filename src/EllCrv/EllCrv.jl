@@ -204,16 +204,16 @@ function EllipticCurve(K::Field, x::Vector{T}; check::Bool = true) where T
   end
 end
 
-#  Implicit promotion in characterstic 0
+#  Implicit promotion in characteristic 0
 function EllipticCurve(x::Vector{<: IntegerUnion}; check::Bool = true)
-  return EllipticCurve(fmpq[QQ(z) for z in x], check = check)
+  return EllipticCurve(QQFieldElem[QQ(z) for z in x], check = check)
 end
 
 function EllipticCurve(x::Vector{Rational{T}}; check::Bool = true) where {T <: IntegerUnion}
-  return EllipticCurve(fmpq[QQ(z) for z in x], check = check)
+  return EllipticCurve(QQFieldElem[QQ(z) for z in x], check = check)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     EllipticCurve(f::PolyElem; check::Bool = true) -> EllCrv
 
 Return the elliptic curve $y^2 = f(x)$. The polynomial $f$ must be monic of
@@ -232,7 +232,7 @@ function EllipticCurve(f::PolyElem{<: FieldElem}; check::Bool = true)
   return EllipticCurve([a1, a2, a3, a4, a6], check = check)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     EllipticCurve(f::PolyElem; h::PolyElem, check::Bool = true) -> EllCrv
 
 Return the elliptic curve $y^2 + h(x)y = f(x)$. The polynomial $f$ must be monic of
@@ -257,7 +257,7 @@ function EllipticCurve(f::PolyElem{T}, g, check::Bool = true) where T
   return EllipticCurve(f, parent(f)(g))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     elliptic_curve_from_j_invariant(j::FieldElem) -> EllCrv
 
 Return an elliptic curve with the given j-invariant.
@@ -287,7 +287,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     base_field(E::EllCrv) -> Field
 
 Return the base field over which `E` is defined.
@@ -302,7 +302,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     base_change(K::Field, E::EllCrv) -> EllCrv
 
 Return the base change of the elliptic curve $E$ over K if coercion is
@@ -324,7 +324,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     ==(E::EllCrv, F::EllCrv) -> Bool
 
 Return true if $E$ and $F$ are given by the same model over the same field.
@@ -339,7 +339,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     a_invars(E::EllCrv{T}) -> Tuple{T, T, T, T, T}
 
 Return the Weierstrass coefficients of E as a tuple (a1, a2, a3, a4, a6)
@@ -349,7 +349,7 @@ function a_invars(E::EllCrv)
   return E.a_invars
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     coefficients(E::EllCrv{T}) -> Tuple{T, T, T, T, T}
 
 Return the Weierstrass coefficients of E as a tuple (a1, a2, a3, a4, a6)
@@ -357,7 +357,7 @@ such that E is given by y^2 + a1xy + a3y = x^3 + a2x^2 + a4x + a6.
 """
 coefficients(E::EllCrv) = a_invars(E)
 
-@doc Markdown.doc"""
+@doc raw"""
     b_invars(E::EllCrv{T}) -> Tuple{T, T, T, T}
 
 Return the b-invariants of E as a tuple (b2, b4, b6, b8).
@@ -377,7 +377,7 @@ function b_invars(E::EllCrv)
   end
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     c_invars(E::EllCrv{T}) -> Tuple{T, T, T, T}
 
 Return the c-invariants of E as a tuple (c4, c6).
@@ -401,7 +401,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     discriminant(E::EllCrv{T}) -> T
 
 Compute the discriminant of $E$.
@@ -430,7 +430,7 @@ end
 ################################################################################
 
 # p. 46 Washington, p. 72 Cohen
-@doc Markdown.doc"""
+@doc raw"""
     j_invariant(E::EllCrv{T}) -> T
 
 Compute the j-invariant of $E$.
@@ -464,21 +464,21 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     equation(E::EllCrv) -> Poly
 
 Return the equation defining the elliptic curve E.
 """
 function equation(E::EllCrv)
   K = base_field(E)
-  Kxy,(x,y) = PolynomialRing(K, ["x","y"])
+  Kxy,(x,y) = polynomial_ring(K, ["x","y"])
 
   a1, a2, a3, a4, a6 = a_invars(E)
 
   return y^2 + a1*x*y + a3*y - (x^3 + a2*x^2 + a4*x + a6)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     hyperelliptic_polynomials(E::EllCrv) -> Poly, Poly
 
 Return f, h such that E is given by y^2 + h*y = f
@@ -486,7 +486,7 @@ Return f, h such that E is given by y^2 + h*y = f
 function hyperelliptic_polynomials(E::EllCrv)
 
   K = base_field(E)
-  Kx, x = PolynomialRing(K,"x")
+  Kx, x = polynomial_ring(K,"x")
   a1, a2, a3, a4, a6 = a_invars(E)
 
   return x^3 + a2*x^2 + a4*x + a6, a1*x + a3
@@ -539,7 +539,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     infinity(E::EllCrv) -> EllCrvPt
 
 Return the point at infinity.
@@ -554,7 +554,7 @@ function points_with_x(E::EllCrv{T}, x) where T
   R = base_field(E)
   x = R(x)
   a1, a2, a3, a4, a6 = a_invars(E)
-  Ry, y = PolynomialRing(R,"y")
+  Ry, y = polynomial_ring(R,"y")
   f = y^2 +a1*x*y + a3*y - x^3 - a2*x^2 - a4*x - a6
   ys = roots(f)
   pts = []
@@ -565,7 +565,7 @@ function points_with_x(E::EllCrv{T}, x) where T
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     is_finite(P::EllCrvPt) -> Bool
 
 Return true if P is not the point at infinity.
@@ -574,7 +574,7 @@ function is_finite(P::EllCrvPt)
   return !P.is_infinite
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     is_infinite(P::EllCrvPt) -> Bool
 
 Return true if P is the point at infinity.
@@ -590,7 +590,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     is_on_curve(E::EllCrv{T}, coords::Vector{T}) -> Bool
 
 Return true if `coords` defines a point on $E$ and false otherwise. The array
@@ -707,7 +707,7 @@ end
 ################################################################################
 
 # washington p. 14, cohen p. 270
-@doc Markdown.doc"""
+@doc raw"""
     +(P::EllCrvPt, Q::EllCrvPt) -> EllCrvPt
 
 Add two points on an elliptic curve.
@@ -770,7 +770,7 @@ function +(P::EllCrvPt{T}, Q::EllCrvPt{T}) where T
   return Erg
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     -(P::EllCrvPt, Q::EllCrvPt) -> EllCrvPt
 
 Subtract two points on an elliptic curve.
@@ -787,7 +787,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     -(P::EllCrvPt) -> EllCrvPt
 
 Compute the inverse of the point $P$ on an elliptic curve.
@@ -809,7 +809,7 @@ function -(P::EllCrvPt)
   return Q
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     ==(P::EllCrvPt, Q::EllCrvPt) -> Bool
 
 Return true if $P$ and $Q$ are equal and live over the same elliptic curve
@@ -841,12 +841,12 @@ end
 ################################################################################
 
 # algorithm 'integer times a point', [Washington, p. 18]
-@doc Markdown.doc"""
+@doc raw"""
     *(n::Int, P::EllCrvPt) -> EllCrvPt
 
 Compute the point $nP$.
 """
-function *(n ::S, P::EllCrvPt) where S<:Union{Integer, fmpz}
+function *(n ::S, P::EllCrvPt) where S<:Union{Integer, ZZRingElem}
   B = infinity(P.parent)
   C = P
 
@@ -881,7 +881,7 @@ end
 ################################################################################
 
 #Returns the numerator of the multiplication by m map
-function multiplication_by_m_numerator(E::EllCrv, m::S, x = PolynomialRing(base_field(E),"x")[2]) where S<:Union{Integer, fmpz}
+function multiplication_by_m_numerator(E::EllCrv, m::S, x = polynomial_ring(base_field(E),"x")[2]) where S<:Union{Integer, ZZRingElem}
 
   p = characteristic(base_field(E))
   if p == 2
@@ -908,7 +908,7 @@ function multiplication_by_m_numerator(E::EllCrv, m::S, x = PolynomialRing(base_
 end
 
 #Returns the denominator of the multiplication by m map
-function multiplication_by_m_denominator(E::EllCrv, m::S, x = PolynomialRing(base_field(E),"x")[2]) where S<:Union{Integer, fmpz}
+function multiplication_by_m_denominator(E::EllCrv, m::S, x = polynomial_ring(base_field(E),"x")[2]) where S<:Union{Integer, ZZRingElem}
   p = characteristic(base_field(E))
   if p == 2
     #See Blake, Seroussi, Smart - Elliptic Curves in Cryptography III.4.2
@@ -930,7 +930,7 @@ end
 #Returns the y-coordinate of the multiplication by m map
 #For characteristic 2 the curve needs to be in simplified form
 #See Blake, Seroussi, Smart - Elliptic Curves in Cryptography III
-function multiplication_by_m_y_coord(E::EllCrv, m::S, x = PolynomialRing(base_field(E),"x")[2], y = PolynomialRing(parent(x),"y")[2]) where S<:Union{Integer, fmpz}
+function multiplication_by_m_y_coord(E::EllCrv, m::S, x = polynomial_ring(base_field(E),"x")[2], y = polynomial_ring(parent(x),"y")[2]) where S<:Union{Integer, ZZRingElem}
 
   Kxy = parent(y)
 
@@ -993,13 +993,13 @@ function multiplication_by_m_y_coord(E::EllCrv, m::S, x = PolynomialRing(base_fi
   #return (psi_2m - (a1*phi_m + a3*psi_m)*psi_m)//(2*psi_m^2)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     division_points(P::EllCrvPt, m::Int) -> EllCrvPt
 
 Compute the set of points Q defined over the base field such that m*Q = P.
 Returns the empty set if no such points exist.
 """
-function division_points(P::EllCrvPt, m::S) where S<:Union{Integer, fmpz}
+function division_points(P::EllCrvPt, m::S) where S<:Union{Integer, ZZRingElem}
 
   if m==0
     return typeof(P)[]
@@ -1040,7 +1040,7 @@ function division_points(P::EllCrvPt, m::S) where S<:Union{Integer, fmpz}
   for a in roots(g)
     a1, a2, a3, a4, a6 = a_invars(E)
     R = base_field(E)
-    Ry, y = PolynomialRing(R,"y")
+    Ry, y = polynomial_ring(R,"y")
     f = y^2 +a1*a*y + a3*y - a^3 - a2*a^2 - a4*a - a6
     ys = roots(f)
     if length(ys)!=0
@@ -1066,12 +1066,12 @@ function division_points(P::EllCrvPt, m::S) where S<:Union{Integer, fmpz}
   return divpoints
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     //(P::EllCrvPt, n::Int) -> EllCrvPt
 
 Return a point $Q$ such that $nQ = P$.
 """
-function //(P::EllCrvPt, n ::S) where S<:Union{Integer, fmpz}
+function //(P::EllCrvPt, n ::S) where S<:Union{Integer, ZZRingElem}
   L = division_points(P, n)
   if !isempty(L)
     return L[1]
@@ -1086,7 +1086,7 @@ end
 #
 ################################################################################
 
-function log(a::fmpz, b::fmpz)
+function log(a::ZZRingElem, b::ZZRingElem)
   log(b)/log(a)
 end
 

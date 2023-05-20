@@ -1,6 +1,6 @@
 @testset "RCF" begin
-  Qx, x = PolynomialRing(FlintQQ)
-  k, a = NumberField(x - 1, "a")
+  Qx, x = polynomial_ring(FlintQQ)
+  k, a = number_field(x - 1, "a")
   Z = maximal_order(k)
 
   function doit(u::UnitRange, p::Int = 3)
@@ -8,7 +8,7 @@
     for i in u
       I = ideal(Z, i)
       r, mr = ray_class_group(I, n_quo=p)
-      for s in index_p_subgroups(r, fmpz(p), (A,x) -> quo(A, x)[2])
+      for s in index_p_subgroups(r, ZZRingElem(p), (A,x) -> quo(A, x)[2])
         a = ray_class_field(mr, s)
         if is_conductor(a, I, check=false)
           K = number_field(a)
@@ -78,8 +78,8 @@
     @test Hecke.is_local_norm(r1, zk(p)) == b
   end
 
-  Qx, x = PolynomialRing(FlintQQ, "x");
-  k, a = NumberField(x^2 - 10, "a");
+  Qx, x = polynomial_ring(FlintQQ, "x");
+  k, a = number_field(x^2 - 10, "a");
   A = ray_class_field(35*maximal_order(k))
   B = Hecke.maximal_abelian_subfield(A, k)
   @test A == B
@@ -90,8 +90,8 @@
   @test degree(A) == 2
   @test degree(intersect(A, cyclotomic_field(ClassField, 10))) == 1
 
-  Qx, x = PolynomialRing(FlintQQ, "x");
-  k, a = NumberField(x^2 - 10, "a");
+  Qx, x = polynomial_ring(FlintQQ, "x");
+  k, a = number_field(x^2 - 10, "a");
   A = ray_class_field(35*maximal_order(k))
 
   K, = simple_extension(number_field(A))
@@ -161,6 +161,10 @@
   k = quadratic_field(8*9)[1]
   e = equation_order(k)
   @test degree(Hecke.ring_class_field(e)) == 2
+
+  k, _ = number_field(x^3 - 69*x - 52)
+  kk = number_field(ray_class_field(1*maximal_order(k), real_places(k)))
+  @test degree(kk) == 2
 end
 
 @testset "Jon Yard" begin
@@ -175,8 +179,8 @@ end
 end
 
 @testset "Some abelian extensions" begin
-  Qx, x = PolynomialRing(FlintQQ, "x")
-  K, a = NumberField(x - 1, "a")
+  Qx, x = polynomial_ring(FlintQQ, "x")
+  K, a = number_field(x - 1, "a")
   O = maximal_order(K)
   r, mr = Hecke.ray_class_groupQQ(O, 7872, true, 16)
   ls = subgroups(r, quotype = [16], fun = (x, y) -> quo(x, y, false)[2])
@@ -192,21 +196,21 @@ end
   @test length(class_fields) == 14
 
   K, a = quadratic_field(2, cached = false)
-  @test length(abelian_extensions(K, [2], fmpz(10)^4, absolutely_distinct = true)) == 38
+  @test length(abelian_extensions(K, [2], ZZRingElem(10)^4, absolutely_distinct = true)) == 38
 
   # with target signatures
   K, a = number_field(x^3 - x^2 - 2*x + 1, cached = false)
-  l = abelian_extensions(K, [2, 2], fmpz(10)^12)
+  l = abelian_extensions(K, [2, 2], ZZRingElem(10)^12)
   @test length(l) == 28
-  l1 = abelian_extensions(K, [2, 2], fmpz(10)^12, signatures = [(4, 4)])
+  l1 = abelian_extensions(K, [2, 2], ZZRingElem(10)^12, signatures = [(4, 4)])
   @test length(l1) == 3
-  l2 = abelian_extensions(K, [2, 2], fmpz(10)^12, signatures = [(0, 6)])
+  l2 = abelian_extensions(K, [2, 2], ZZRingElem(10)^12, signatures = [(0, 6)])
   @test length(l2) == 25
-  l3 = abelian_extensions(K, [2, 2], fmpz(10)^12, signatures = [(0, 6), (4, 4)])
+  l3 = abelian_extensions(K, [2, 2], ZZRingElem(10)^12, signatures = [(0, 6), (4, 4)])
   @test length(l3) == 28
-  l4 = abelian_extensions(K, [2, 2], fmpz(10)^12, signatures = [(0, 6), (4, 4), (0, 0)])
+  l4 = abelian_extensions(K, [2, 2], ZZRingElem(10)^12, signatures = [(0, 6), (4, 4), (0, 0)])
   @test length(l4) == 28
-  l5 = abelian_extensions(K, [2, 2], fmpz(10)^12, signatures = [(0, 0)])
+  l5 = abelian_extensions(K, [2, 2], ZZRingElem(10)^12, signatures = [(0, 0)])
   @test length(l5) == 0
 
   # a wrong conductor
@@ -226,7 +230,6 @@ end
   sigma = complex_conjugation(C, real_places(K)[1])
   L = number_field(C)
   e = real_embeddings(K)[1]
-  @assert overlaps(e(gen(K)), evaluate(gen(K), real_places(K)[1]))
   @test all(ee -> sigma * ee == conj(ee), extend(e, hom(K, L)))
 
   k, = quadratic_field(23)
@@ -238,4 +241,90 @@ end
   OK = maximal_order(K)
   rcf = ray_class_field(9*OK,real_places(K))
   @test domain(complex_conjugation(rcf,real_places(K)[1])) == number_field(rcf)
+end
+
+
+@testset "extend base field" begin
+  Qx, x = QQ["x"]
+  k, a = number_field(x^3 - 3*x^2 - 87*x + 424) 
+  #random transformation from x^3-5 - so that lll does s.th.
+  K, mkK = normal_closure(k)
+
+  zk = lll(maximal_order(k))
+  ZK = lll(maximal_order(K))
+
+  C, mC = ray_class_group(27*zk, real_places(k))
+  Lambda = ray_class_field(mC)
+  G = genus_field(Lambda, rationals_as_number_field()[1])
+  @test degree(G) == 54
+
+  GK = Hecke.extend_base_field(G, mkK)
+  @test degree(GK) == 27
+
+  GG = genus_field(ray_class_field(27*ZK), k)
+  @test degree(GG) == 9*27
+end
+
+@testset "Knots - elementary" begin
+  Qx, x = QQ["x"]
+  f = x^4 - x^3 - 32*x^2 + 23*x + 224
+  k = number_field(f, cached = false)[1];
+  zk = lll(maximal_order(k))
+  Gamma = ray_class_field(8*zk, real_places(k))
+  @test degree(Gamma) == 128
+
+  G = genus_field(Gamma)
+  @test degree(G) == 8
+
+  Z = Hecke.maximal_central_subfield(Gamma, stable = 20, lower_bound = degree(G))
+  @test degree(Z) == 16
+
+  lp = prime_decomposition(zk, 2)
+  d = Set([elementary_divisors(decomposition_group(Gamma, p[1])) for p = lp])
+  @test d == Set([ZZRingElem[2,2,4], ZZRingElem[2,2,2,2,4]])
+
+  d = Set([elementary_divisors(inertia_subgroup(Gamma, p[1])) for p = lp])
+  @test d == Set([ZZRingElem[2,2], ZZRingElem[2,2,2,2]])
+end 
+
+@testset "Knots - abelian" begin
+  Qx, x = QQ["x"]
+  f = x^4 - x^3 - 32*x^2 + 23*x + 224
+  k = splitting_field(f)
+  s = subfields(k, degree = 3)[1][1]
+  k = relative_simple_extension(k, s)[1]
+  C = ray_class_field(k)
+  @test order(Hecke.knot(C)) == 2
+
+  k = number_field([x^2-3, x^2-5])[1]
+  ka = absolute_simple_field(k)[1]
+  C = ray_class_field(ka)
+  @test order(Hecke.knot(C)) == 1
+
+  k = number_field([x^2+3, x^2-13])[1]
+  ka = absolute_simple_field(k)[1]
+  C = ray_class_field(ka)
+  @test order(Hecke.knot(C)) == 2
+
+  Z, G = Hecke.small_knot(ka)
+  @test degree(Z) == 2
+  @test degree(G) == 1
+end
+
+@testset "Knots - non-abelian" begin
+  k, a = cyclotomic_field(7)
+  f = minpoly(a+1//a)
+  k, a = number_field(f)
+  zk = lll(maximal_order(k))
+  R = ray_class_field(29*31*37*41*43*zk, n_quo = 2)
+  G, mG = automorphism_group(k)
+  h = Hecke.norm_group_map(R, R, mG(G[1]))
+  hh = Hecke.norm_group_map(R, R, mG(G[2]))
+  S = fixed_field(R, kernel(h-hh)[1])
+
+  ns = norm_group(S)[1]
+  t = fixed_field(S, sub(ns, [ns[1], ns[3]])[1])
+  @test degree(t) == 4
+  @test !is_normal(t)
+  @test normal_closure(t) == S
 end

@@ -5,7 +5,7 @@ CurrentModule = Hecke
 
 
 A fractional ideal in the number field $K$ is a $Z_K$-module $A$
-such that there exists an integer $d>0$ wich $dA$ is an (integral) ideal
+such that there exists an integer $d>0$ which $dA$ is an (integral) ideal
 in $Z_K$. Due to the Dedekind property of $Z_K$, the ideals for a
 multiplicative group.
 
@@ -15,11 +15,11 @@ denominator. They are of type `NfOrdFracIdl`.
 ## Creation
 
 ```@docs
-fractional_ideal(::NfOrd, ::fmpz_mat)
-fractional_ideal(::NfOrd, ::fmpz_mat, ::fmpz)
+fractional_ideal(::NfOrd, ::ZZMatrix)
+fractional_ideal(::NfOrd, ::ZZMatrix, ::ZZRingElem)
 fractional_ideal(::NfOrd, ::FakeFmpqMat)
 fractional_ideal(::NfOrd, ::NfOrdIdl)
-fractional_ideal(::NfOrd, ::NfOrdIdl, ::fmpz)
+fractional_ideal(::NfOrd, ::NfOrdIdl, ::ZZRingElem)
 fractional_ideal(::NfOrd, ::nf_elem)
 fractional_ideal(::NfOrd, ::NfOrdElem)
 inv(::NfOrdIdl)

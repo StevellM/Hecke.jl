@@ -4,38 +4,6 @@
 #
 ################################################################################
 
-# This holds invariants of a local Jordan decomposition
-#
-# L = L_1 \perp ... \perp L_r
-#
-# In the non-dyadic case we store
-# - ranks
-# - scales
-# - determinant (classes)
-# of the L_i
-#
-# In the dyadic case we store
-# - norm generators of L_i
-# - (valuation of ) weights
-# - determinant (classes)
-# - Witt invariants
-
-mutable struct JorDec{S, T, U}
-  K::S
-  p::T
-  is_dyadic::Bool
-  ranks::Vector{Int}
-  scales::Vector{Int}
-
-  # dyadic things
-  normgens::Vector{U}
-  weights::Vector{Int}
-  dets::Vector{U}
-  witt::Vector{Int}
-
-  JorDec{S, T, U}() where {S, T, U} = new{S, T, U}()
-end
-
 function JorDec(p, scales::Vector{Int}, ranks::Vector{Int}, dets::Vector{nf_elem})
   K = nf(order(p))
   _weight = Vector{Int}()
@@ -112,7 +80,7 @@ function JorDec(J, G, E, p)
   O = order(p)
   K = nf(O)
   t = length(G)
-  _, _h = ResidueField(O, p)
+  _, _h = residue_field(O, p)
   h = extend(_h, K)
   if !is_dyadic(p)
     dets = elem_type(K)[det(G[i]) for i in 1:t]
@@ -174,7 +142,7 @@ function JorDec(L::QuadLat, p)
   return JorDec(J, G, E, p)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     gram_matrix(J::JorDec, i::Int) -> MatElem
 
 Given an abstract Jordan decomposition $J$ and $i$, return the Gram matrix of
@@ -227,11 +195,11 @@ function gram_matrix(J::JorDec, i::Int)
   end
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     gram_matrix(J::JorDec) -> MatElem
 
 Given an abstract Jordan decomposition, return the Gram matrix of a lattice
-admitting this Jordan decompositon.
+admitting this Jordan decomposition.
 """
 function gram_matrix(J::JorDec)
   K = J.K
@@ -243,18 +211,18 @@ function gram_matrix(J::JorDec)
   return D
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     lattice(J::JorDec) -> MatElem
 
 Given an abstract Jordan decomposition, return a lattice admitting this Jordan
-decompositon.
+decomposition.
 """
 function lattice(J::JorDec)
   return quadratic_lattice(J.K, gram = gram_matrix(J))
 end
 
-@doc Markdown.doc"""
-    genus(J::JorDec) -> LocalGenusQuad
+@doc raw"""
+    genus(J::JorDec) -> QuadLocalGenus
 
 Given an abstract Jordan decomposition, return the local genus to which the
 corresponding matrix belongs.
@@ -298,7 +266,7 @@ function genus(J::JorDec)
     D = elem_type(K)[]
     for j in 1:r
       # TODO: We could determine just the diagonal, that would be easier.
-      # Also, there is some redundancy here, the z is acutally independent of i
+      # Also, there is some redundancy here, the z is actually independent of i
       z = gram_matrix(J, j)
       for l in 1:nrows(z)
         push!(D, pi^(max(0, 2 * (sca[i] - sca[j]))) * z[l, l])
@@ -324,7 +292,7 @@ function genus(J::JorDec)
   return g
 end
 
-function orthogonal_sum(J1::JorDec{S, T, U}, J2::JorDec{S, T, U}) where {S, T, U}
+function direct_sum(J1::JorDec{S, T, U}, J2::JorDec{S, T, U}) where {S, T, U}
   @req J1.p === J2.p "Jordan decompositions must be over same prime"
   if !(J1.is_dyadic)
     i1 = 1
@@ -367,7 +335,7 @@ function orthogonal_sum(J1::JorDec{S, T, U}, J2::JorDec{S, T, U}) where {S, T, U
     return JorDec(J1.p, _sca, _rk, _dets)
   else
     # Lazy
-    return JorDec(orthogonal_sum(lattice(J1), lattice(J2))[1], J1.p)
+    return JorDec(direct_sum(lattice(J1), lattice(J2))[1], J1.p)
   end
 end
 
@@ -466,7 +434,7 @@ function _quadratic_unimodular_lattice_dyadic(p, r, w, d, alpha, wi)
       @assert valuation(det(z), p) == 0
       return z
     else
-      throw(error("This should not happen"))
+      error("This should not happen")
     end
   end
 end
@@ -477,87 +445,30 @@ end
 #
 ################################################################################
 
-# This holds invariants of a local Genus symbol
-#
-# L = L_1 \perp ... \perp L_r
-#
-# In the non-dyadic case we store
-# - ranks
-# - scales
-# - determinant (classes)
-# of the L_i = L^(s_i)
-#
-# In the dyadic case we store
-# - norm generators of L^(s_i)
-# - (valuation of ) weights of L^(s_i)
-# - determinant (classes) of L^(s_i)
-# - Witt invariants of L_i
+local_genus_quad_type(K) = QuadLocalGenus{typeof(K), ideal_type(order_type(K)), elem_type(K)}
 
-mutable struct LocalGenusQuad{S, T, U}
-  K::S
-  p::T
-  is_dyadic::Bool
-  witt_inv::Int
-  hass_inv::Int
-  det::U
-  rank::Int
-
-  uniformizer::U
-
-  ranks::Vector{Int}
-  scales::Vector{Int}
-  detclasses::Vector{Int}
-
-  # dyadic things
-  normgens::Vector{U}
-  weights::Vector{Int}
-  f::Vector{Int}
-  dets::Vector{U}
-  witt::Vector{Int}
-  norms::Vector{Int}
-
-  # Sometimes we know a jordan decomposition
-  jordec::JorDec{S, T, U}
-
-  function LocalGenusQuad{S, T, U}() where {S, T, U}
-    z = new{S, T, U}()
-    z.rank = 0
-    z.witt_inv = 0
-    z.hass_inv = 0
-    return z
-  end
-end
-
-local_genus_quad_type(K) = LocalGenusQuad{typeof(K), ideal_type(order_type(K)), elem_type(K)}
-
-function in(L::QuadLat, G::LocalGenusQuad)
+function in(L::QuadLat, G::QuadLocalGenus)
   return genus(L, prime(G)) == G
 end
 
-function local_quadratic_genus_type(K)
-  return LocalGenusQuad{typeof(K),
-                        ideal_type(order_type(K)),
-                        elem_type(K)}
-end
-
 # Access
-prime(G::LocalGenusQuad) = G.p
+prime(G::QuadLocalGenus) = G.p
 
-length(G::LocalGenusQuad) = length(G.ranks)
+length(G::QuadLocalGenus) = length(G.ranks)
 
-scales(G::LocalGenusQuad) = G.scales
+scales(G::QuadLocalGenus) = G.scales
 
-ranks(G::LocalGenusQuad) = G.ranks
+ranks(G::QuadLocalGenus) = G.ranks
 
-dets(G::LocalGenusQuad) = G.detclasses
+dets(G::QuadLocalGenus) = G.detclasses
 
-weights(G::LocalGenusQuad) = G.weights
+weights(G::QuadLocalGenus) = G.weights
 
-scale(G::LocalGenusQuad, i::Int) = scales(G)[i]
+scale(G::QuadLocalGenus, i::Int) = scales(G)[i]
 
-rank(G::LocalGenusQuad, i::Int) = ranks(G)[i]
+rank(G::QuadLocalGenus, i::Int) = ranks(G)[i]
 
-function witt_invariant(G::LocalGenusQuad)
+function witt_invariant(G::QuadLocalGenus)
   if G.witt_inv != 0
     return G.witt_inv
   end
@@ -569,7 +480,7 @@ function witt_invariant(G::LocalGenusQuad)
   w, d, n = G.witt[1], G.dets[1], G.ranks[1]
 
   for i in 2:length(G)
-    d, w, n = _witt_of_orthogonal_sum(d, w, n, G.dets[i], G.witt[i], G.ranks[i], p)
+    d, w, n = _witt_of_direct_sum(d, w, n, G.dets[i], G.witt[i], G.ranks[i], p)
   end
 
   G.witt_inv = w
@@ -577,7 +488,7 @@ function witt_invariant(G::LocalGenusQuad)
   return w
 end
 
-function rank(G::LocalGenusQuad)
+function rank(G::QuadLocalGenus)
   if G.rank != 0
     return G.rank
   end
@@ -588,7 +499,7 @@ function rank(G::LocalGenusQuad)
   return rk
 end
 
-function det(G::LocalGenusQuad)
+function det(G::QuadLocalGenus)
   if isdefined(G, :det)
     return G.det
   end
@@ -604,7 +515,7 @@ function det(G::LocalGenusQuad)
   return d
 end
 
-function det(G::LocalGenusQuad, i::Int)
+function det(G::QuadLocalGenus, i::Int)
   #if is_dyadic(G)
     return G.dets[i]
   #else
@@ -613,7 +524,7 @@ function det(G::LocalGenusQuad, i::Int)
   #end
 end
 
-function hasse_invariant(G::LocalGenusQuad)
+function hasse_invariant(G::QuadLocalGenus)
   if rank(G) == 0
     return 1
   end
@@ -636,19 +547,19 @@ function hasse_invariant(G::LocalGenusQuad)
   end
 end
 
-function uniformizer(G::LocalGenusQuad)
+function uniformizer(G::QuadLocalGenus)
   @req !is_dyadic(G) "Genus symbol must not be dyadic"
   return G.uniformizer
 end
 
-is_dyadic(G::LocalGenusQuad) = G.is_dyadic
+is_dyadic(G::QuadLocalGenus) = G.is_dyadic
 
-function norm_generators(G::LocalGenusQuad)
+function norm_generators(G::QuadLocalGenus)
   @req is_dyadic(G) "Genus symbol must be dyadic"
   return G.normgens
 end
 
-function norms(G::LocalGenusQuad)
+function norms(G::QuadLocalGenus)
   @req is_dyadic(G) "Genus symbol must be dyadic"
   if !isdefined(G, :norms)
     p = prime(G)
@@ -659,7 +570,7 @@ function norms(G::LocalGenusQuad)
   end
 end
 
-function jordan_decomposition(g::LocalGenusQuad)
+function jordan_decomposition(g::QuadLocalGenus)
   if isdefined(g,:jordec)
     j = g.jordec
   elseif rank(g) == 0
@@ -684,7 +595,7 @@ function jordan_decomposition(g::LocalGenusQuad)
   return j
 end
 
-function Base.show(io::IO, G::LocalGenusQuad{S, T, U}) where {S, T, U}
+function Base.show(io::IO, G::QuadLocalGenus{S, T, U}) where {S, T, U}
   if !is_dyadic(G)
     for i in 1:length(G)
       print(io, "(", G.scales[i], ", ", G.ranks[i], ", ", G.detclasses[i], ")")
@@ -696,7 +607,7 @@ function Base.show(io::IO, G::LocalGenusQuad{S, T, U}) where {S, T, U}
   end
 end
 
-function Base.show(io::IO, ::MIME"text/plain", G::LocalGenusQuad{S, T, U}) where {S, T, U}
+function Base.show(io::IO, ::MIME"text/plain", G::QuadLocalGenus{S, T, U}) where {S, T, U}
   p = prime(G)
   if !get(io, :compact, false)
     print(io, "Local quadratic genus for prime ")
@@ -732,7 +643,7 @@ function genus(::Type{QuadLat}, p, pi::nf_elem, ranks::Vector{Int},
                                                 normclass::Vector{Int})
   @req !is_dyadic(p) "Prime ideal must not be dyadic"
   K = nf(order(p))
-  z = LocalGenusQuad{typeof(K), typeof(p), elem_type(K)}()
+  z = QuadLocalGenus{typeof(K), typeof(p), elem_type(K)}()
   z.p = p
   z.uniformizer = pi
   z.is_dyadic = false
@@ -750,7 +661,7 @@ function genus(::Type{QuadLat}, p, ranks::Vector{Int}, scales::Vector{Int},
                                    f::Vector{Int}) where {T}
   @req is_dyadic(p) "Prime ideal must be dyadic"
   K = nf(order(p))
-  z = LocalGenusQuad{typeof(K), typeof(p), elem_type(K)}()
+  z = QuadLocalGenus{typeof(K), typeof(p), elem_type(K)}()
   z.is_dyadic = true
   z.p = p
   z.ranks = ranks
@@ -770,7 +681,7 @@ function genus(::Type{QuadLat}, p, ranks::Vector{Int}, scales::Vector{Int},
                                    witt::Vector{Int}) where {T}
   @req is_dyadic(p) "Prime ideal must be dyadic"
   K = nf(order(p))
-  z = LocalGenusQuad{typeof(K), typeof(p), elem_type(K)}()
+  z = QuadLocalGenus{typeof(K), typeof(p), elem_type(K)}()
   z.is_dyadic = true
   z.p = p
   z.ranks = ranks
@@ -811,7 +722,7 @@ end
 #
 ################################################################################
 
-function Base.:(==)(G1::LocalGenusQuad, G2::LocalGenusQuad)
+function Base.:(==)(G1::QuadLocalGenus, G2::QuadLocalGenus)
   if G1 === G2
     return true
   end
@@ -1007,7 +918,7 @@ end
 
 function _genus_symbol(L::QuadLat, p)
   O = order(p)
-  nf(O) != base_field(L) && throw(error("Prime ideal must be an ideal of the base field of the lattice"))
+  nf(O) != base_field(L) && error("Prime ideal must be an ideal of the base field of the lattice")
   K = nf(O)
   # If you pull from cache, you might have to adjust the symbol according
   # to the uniformizer flag
@@ -1019,7 +930,7 @@ function _genus_symbol(L::QuadLat, p)
   local pi::nf_elem
 
   if minimum(p) != 2
-    _, _h = ResidueField(O, p)
+    _, _h = residue_field(O, p)
     h = extend(_h, nf(O))
     _sym = Vector{Tuple{Int, Int, Int}}(undef, length(J))
     pi = elem_in_nf(uniformizer(p))
@@ -1081,7 +992,7 @@ end
 #
 ################################################################################
 
-function orthogonal_sum(G1::LocalGenusQuad, G2::LocalGenusQuad)
+function direct_sum(G1::QuadLocalGenus, G2::QuadLocalGenus)
   @req prime(G1) === prime(G2) "Local genera must have the same prime ideal"
   if !G1.is_dyadic
     p = prime(G1)
@@ -1108,18 +1019,18 @@ function orthogonal_sum(G1::LocalGenusQuad, G2::LocalGenusQuad)
   else
     L1 = representative(G1)
     L2 = representative(G2)
-    L3, = orthogonal_sum(L1, L2)
+    L3, = direct_sum(L1, L2)
     G3 = genus(L3, prime(G1))
   end
 
   if isdefined(G1, :jordec) && isdefined(G2, :jordec)
-    G3.jordec = orthogonal_sum(G1.jordec, G2.jordec)
+    G3.jordec = direct_sum(G1.jordec, G2.jordec)
   end
 
   return G3
 end
 
-function _direct_sum_easy(G1::LocalGenusQuad, G2::LocalGenusQuad, detclassesG2 = G2.detclasses)
+function _direct_sum_easy(G1::QuadLocalGenus, G2::QuadLocalGenus, detclassesG2 = G2.detclasses)
   # We do a merge sort
   i1 = 1
   i2 = 1
@@ -1161,7 +1072,7 @@ function _direct_sum_easy(G1::LocalGenusQuad, G2::LocalGenusQuad, detclassesG2 =
   return genus(QuadLat, prime(G1), uniformizer(G1), _rk, _sca, _detclass)
 end
 
-Base.:(+)(G1::LocalGenusQuad, G2::LocalGenusQuad) = orthogonal_sum(G1, G2)
+Base.:(+)(G1::QuadLocalGenus, G2::QuadLocalGenus) = direct_sum(G1, G2)
 
 ################################################################################
 #
@@ -1180,28 +1091,18 @@ end
 
 function _non_square(K, p)
   O = order(p)
-  R, mR = ResidueField(O, p)
+  R, mR = residue_field(O, p)
   u = elem_in_nf(mR\non_square(R))
   @assert !is_local_square(u, p)[1]
   return u
 end
 
-function representative(G::LocalGenusQuad)
+function representative(G::QuadLocalGenus)
   K = nf(order(G.p))
   return lattice(quadratic_space(K, gram_matrix(jordan_decomposition(G))))
 end
 
 ######
-
-mutable struct LocalGenusSymbol{S}
-  P
-  data
-  x
-  iseven::Bool
-  E
-  is_ramified
-  non_norm
-end
 
 prime(G::LocalGenusSymbol) = G.P
 
@@ -1227,7 +1128,7 @@ end
 
 function _genus_symbol_kirschmer(L::QuadLat, p::NfOrdIdl; uniformizer = zero(order(p)))
   O = order(p)
-  nf(O) != base_field(L) && throw(error("Prime ideal must be an ideal of the base field of the lattice"))
+  nf(O) != base_field(L) && error("Prime ideal must be an ideal of the base field of the lattice")
   # If you pull from cache, you might have to adjust the symbol according
   # to the uniformizer flag
 
@@ -1235,14 +1136,14 @@ function _genus_symbol_kirschmer(L::QuadLat, p::NfOrdIdl; uniformizer = zero(ord
   if !iszero(uniformizer)
     unif = uniformizer
     if valuation(unif, p) != 1
-      throw(error("Wrong uniformizer"))
+      error("Wrong uniformizer")
     end
   else
     unif = elem_in_nf(Hecke.uniformizer(p))
   end
 
   if minimum(p) != 2
-    _, _h = ResidueField(O, p)
+    _, _h = residue_field(O, p)
     h = extend(_h, nf(O))
     Gs = [ h(prod(diagonal(G[i]))//unif^(E[i] * nrows(J[i]))) for i in 1:length(J)]
     @assert !(0 in Gs)
@@ -1442,7 +1343,7 @@ function _unimodular_jordan_block(p, m)
   return res
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     local_jordan_decomposition(E::NumField, p; rank::Int
                                                det_val::Int
                                                max_scale::Int)
@@ -1536,7 +1437,7 @@ function _local_jordan_decompositions_nondyadic!(res, E, p, scalerank, ns, u)
   class2 = elem_type(E)[ns * u^(s[1] * s[2]) for s in scalerank]
   l = length(scalerank)
   @assert l <= sizeof(UInt) * 8
-  # I need to compute all possiblities to distribute class1/class2
+  # I need to compute all possibilities to distribute class1/class2
   # among the blocks.
   t = zero(UInt)
   for i in 1:2^l
@@ -1600,9 +1501,9 @@ function _local_jordan_decompositions_dyadic!(res, E, p, scalerank)
 end
 
 
-function local_genera_quadratic(K, p; rank::Int, det_val::Int, max_scale = nothing)
+function quadratic_local_genera(K, p; rank::Int, det_val::Int, max_scale = nothing)
   J = local_jordan_decompositions(K, p, rank = rank, det_val = det_val, max_scale = max_scale)
-  res = local_quadratic_genus_type(K)[]
+  res = local_genus_quad_type(K)[]
   for j in J
     g = genus(j)
     if !(g in res)
@@ -1618,25 +1519,9 @@ end
 #
 ################################################################################
 
-mutable struct GenusQuad{S, T, U}
-  K::S
-  primes::Vector{T}
-  LGS::Vector{LocalGenusQuad{S, T, U}}
-  rank::Int
-  signatures::Dict{InfPlc, Int}
-  d::U
-  space
+genus_quad_type(K) = QuadGenus{typeof(K), ideal_type(order_type(K)), elem_type(K)}
 
-  function GenusQuad{S, T, U}(K) where {S, T, U}
-    z = new{typeof(K), ideal_type(order_type(K)), elem_type(K)}()
-    z.rank = -1
-    return z
-  end
-end
-
-genus_quad_type(K) = GenusQuad{typeof(K), ideal_type(order_type(K)), elem_type(K)}
-
-function GenusQuad(K, d, LGS, signatures)
+function QuadGenus(K, d, LGS, signatures)
   z = genus_quad_type(K)(K)
   z.LGS = LGS
   z.signatures = signatures
@@ -1652,13 +1537,13 @@ function genus(L::QuadLat{})
     bad = bad_primes(L, even = true)
     S = real_places(base_field(L))
     D = diagonal(rational_span(L))
-    signatures = Dict{InfPlc, Int}(s => count(d -> is_negative(d, s), D) for s in S)
-    G = GenusQuad(base_field(L), prod(D), [genus(L, p) for p in bad], signatures)
+    signatures = Dict{InfPlc{AnticNumberField, NumFieldEmbNfAbs}, Int}(s => count(d -> is_negative(d, _embedding(s)), D) for s in S)
+    G = QuadGenus(base_field(L), prod(D), [genus(L, p) for p in bad], signatures)
     return G::genus_quad_type(base_field(L))
   end
 end
 
-function Base.:(==)(G1::GenusQuad, G2::GenusQuad)
+function Base.:(==)(G1::QuadGenus, G2::QuadGenus)
   if G1.K != G2.K
     return false
   end
@@ -1692,34 +1577,34 @@ function Base.:(==)(G1::GenusQuad, G2::GenusQuad)
   return true
 end
 
-primes(G::GenusQuad) = G.primes
+primes(G::QuadGenus) = G.primes
 
-function genera_quadratic(K; rank::Int, signatures, det)
+function quadratic_genera(K; rank::Int, signatures, det)
   OK = maximal_order(K)
 
   _max_scale = 2 * det
 
   primes = support(2 * det)
 
-  local_symbols = Vector{local_quadratic_genus_type(K)}[]
+  local_symbols = Vector{local_genus_quad_type(K)}[]
 
   ms = _max_scale
   ds = det
   for p in primes
     det_val = valuation(ds, p)
     mscale_val = valuation(ms, p)
-    push!(local_symbols, local_genera_quadratic(K, p, rank = rank, det_val = det_val, max_scale = mscale_val))
+    push!(local_symbols, quadratic_local_genera(K, p, rank = rank, det_val = det_val, max_scale = mscale_val))
   end
 
   res = genus_quad_type(K)[]
   it = Iterators.product(local_symbols...)
   for gs in it
-    c = collect(gs)::Vector{local_quadratic_genus_type(K)}
+    c = collect(gs)::Vector{local_genus_quad_type(K)}
     de = _possible_determinants(K, c, signatures)::Vector{nf_elem}
     for d in de
       b = _check_global_quadratic_genus(c, d, signatures)
       if b
-        push!(res, GenusQuad(K, d, c, signatures))
+        push!(res, QuadGenus(K, d, c, signatures))
       end
     end
   end
@@ -1792,10 +1677,10 @@ function _possible_determinants(K, local_symbols, signatures)
       push!(s, P)
     end
   end
-  rlp = real_places(K)
+  rlp = real_embeddings(K)
   local R::GrpAbFinGen
-  R, _exp, _log = infinite_primes_map(OK, rlp, 1 * OK)
-  tar = R(Int[isodd(signatures[sigma]) ? 1 : 0 for sigma in rlp])
+  R, _exp, _log = sign_map(OK, rlp, 1 * OK)
+  tar = R(Int[isodd(signatures[infinite_place(sigma)]) ? 1 : 0 for sigma in rlp])
   gensU = gens(U)
   S, mS = sub(R, elem_type(R)[_log(mU(u)) for u in gensU], false)
   # I need totally positive units / OK^*2
@@ -1816,7 +1701,7 @@ function _possible_determinants(K, local_symbols, signatures)
     if fl
       z = elem_in_nf(u) * prod(elem_type(K)[ evaluate(mU(gensU[i]))^y.coeff[i] for i in 1:length(gensU)])
       @assert z * OK == J
-      @assert all(sigma -> sign(z, sigma) == (-1)^signatures[sigma], rlp)
+      @assert all(sigma -> sign(z, sigma) == (-1)^signatures[infinite_place(sigma)], rlp)
       for t in transver
         possible_det = z * t
         good = true
@@ -1836,7 +1721,7 @@ function _possible_determinants(K, local_symbols, signatures)
   return dets
 end
 
-function quadratic_space(G::GenusQuad)
+function quadratic_space(G::QuadGenus)
   if isdefined(G, :space)
     return G.space::quadratic_space_type(G.K)
   end
@@ -1857,7 +1742,7 @@ end
 #
 ################################################################################
 
-function representative(G::GenusQuad)
+function representative(G::QuadGenus)
   K = G.K
   OK = order(primes(G)[1])
   # Let's follow the Lorch paper. This is also how we do it in the Hermitian case.
@@ -1874,7 +1759,7 @@ function representative(G::GenusQuad)
 end
 
 function locally_isometric_sublattice(M::QuadLat, L::QuadLat, p)
-  k, h = ResidueField(order(p), p)
+  k, h = residue_field(order(p), p)
   m = rank(M)
   chain = typeof(L)[ L ]
   local LL::typeof(M)
@@ -1909,17 +1794,17 @@ function locally_isometric_sublattice(M::QuadLat, L::QuadLat, p)
   return LL
 end
 
-function representatives(G::GenusQuad)
+function representatives(G::QuadGenus)
   return genus_representatives(representative(G))
 end
 
 ################################################################################
 #
-#  Orthogonal sum of genus symbols
+#  Direct sum of genus symbols
 #
 ################################################################################
 
-function orthogonal_sum(G1::GenusQuad{S, T, U}, G2::GenusQuad{S, T, U}) where {S, T, U}
+function direct_sum(G1::QuadGenus{S, T, U}, G2::QuadGenus{S, T, U}) where {S, T, U}
   @req G1.K === G2.K "Global genus symbols must be defined over the same field"
   K = G1.K
   LGS = local_genus_quad_type(K)[]
@@ -1945,17 +1830,17 @@ function orthogonal_sum(G1::GenusQuad{S, T, U}, G2::GenusQuad{S, T, U}) where {S
       dcl = fl ? 1 : -1
       g2 = genus(QuadLat, p, [(0, rank(G2), dcl)])
     end
-    g3 = orthogonal_sum(g1, g2)
+    g3 = direct_sum(g1, g2)
     push!(LGS, g3)
   end
   sig1 = G1.signatures
   sig2 = G2.signatures
   sig3 = merge(+, sig1, sig2)
 
-  return GenusQuad(K, G1.d * G2.d, LGS, sig3)
+  return QuadGenus(K, G1.d * G2.d, LGS, sig3)
 end
 
-Base.:(+)(G1::GenusQuad, G2::GenusQuad) = orthogonal_sum(G1, G2)
+Base.:(+)(G1::QuadGenus, G2::QuadGenus) = direct_sum(G1, G2)
 
 ################################################################################
 #
@@ -1963,11 +1848,11 @@ Base.:(+)(G1::GenusQuad, G2::GenusQuad) = orthogonal_sum(G1, G2)
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    in(L::QuadLat, G::GenusQuad) -> Bool
+@doc raw"""
+    in(L::QuadLat, G::QuadGenus) -> Bool
 
 Test if the lattice $L$ is contained in the genus $G$.
 """
-Base.in(L::QuadLat, G::GenusQuad) = genus(L) == G
+Base.in(L::QuadLat, G::QuadGenus) = genus(L) == G
 
 

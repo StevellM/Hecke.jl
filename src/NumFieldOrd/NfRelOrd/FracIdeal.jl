@@ -6,14 +6,14 @@
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     order(a::NfRelOrdFracIdl) -> NfRelOrd
 
 Returns the order of $a$.
 """
 order(a::NfRelOrdFracIdl) = a.order
 
-@doc Markdown.doc"""
+@doc raw"""
     nf(a::NfRelOrdFracIdl) -> NumField
 
 Returns the number field, of which $a$ is a fractional ideal.
@@ -57,7 +57,7 @@ function assure_has_denominator(a::NfRelOrdFracIdl)
     return nothing
   end
   if iszero(a)
-    a.den = fmpz(1)
+    a.den = ZZRingElem(1)
     return nothing
   end
   O = order(a)
@@ -65,7 +65,7 @@ function assure_has_denominator(a::NfRelOrdFracIdl)
   PM = basis_pmatrix(a, copy = false)
   pb = pseudo_basis(O, copy = false)
   inv_coeffs = inv_coeff_ideals(O, copy = false)
-  d = fmpz(1)
+  d = ZZRingElem(1)
   for i = 1:n
     for j = 1:i
       d = lcm(d, denominator(simplify(PM.matrix[i, j]*PM.coeffs[i]*inv_coeffs[j])))
@@ -75,8 +75,8 @@ function assure_has_denominator(a::NfRelOrdFracIdl)
   return nothing
 end
 
-@doc Markdown.doc"""
-    denominator(a::NfRelOrdFracIdl) -> fmpz
+@doc raw"""
+    denominator(a::NfRelOrdFracIdl) -> ZZRingElem
 
 Returns the smallest positive integer $d$ such that $da$ is contained in
 the order of $a$.
@@ -90,7 +90,7 @@ function denominator(a::NfRelOrdFracIdl; copy::Bool = true)
   end
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     numerator(a::NfRelOrdFracIdl) -> NfRelOrdIdl
 
 Returns the ideal $d*a$ where $d$ is the denominator of $a$.
@@ -138,7 +138,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     fractional_ideal(O::NfRelOrd, M::PMat, M_in_hnf::Bool = false) -> NfRelOrdFracIdl
 
 Creates the fractional ideal of $\mathcal O$ with basis pseudo-matrix $M$. If
@@ -150,7 +150,7 @@ function fractional_ideal(O::NfRelOrd{T, S, U}, M::PMat{T, S}, M_in_hnf::Bool = 
   return NfRelOrdFracIdl{T, S, U}(O, M)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     fractional_ideal(O::NfRelOrd, M::Generic.Mat) -> NfRelOrdFracIdl
 
 Creates the fractional ideal of $\mathcal O$ with basis matrix $M$.
@@ -194,7 +194,7 @@ function fractional_ideal(O::NfRelOrd{T, S, U}, a::NfRelOrdIdl{T, S, U}) where {
   return fractional_ideal(O, basis_pmatrix(a), true)
 end
 
-function fractional_ideal(O::NfRelOrd{T, S}, a::NfRelOrdIdl{T, S}, d::U) where { T, S, U <: Union{ fmpz, NfAbsOrdElem, NfRelOrdElem } }
+function fractional_ideal(O::NfRelOrd{T, S}, a::NfRelOrdIdl{T, S}, d::U) where { T, S, U <: Union{ ZZRingElem, NfAbsOrdElem, NfRelOrdElem } }
   K = base_field(nf(O))
   dd = inv(K(d))
   return fractional_ideal(O, dd*basis_pmatrix(a), true)
@@ -264,7 +264,7 @@ function assure_has_norm(a::NfRelOrdFracIdl)
   return nothing
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     norm(a::NfRelOrdFracIdl{T, S}) -> S
 
 Returns the norm of $a$.
@@ -286,9 +286,9 @@ function norm(a::NfRelOrdFracIdl, k::Union{ NfRel, AnticNumberField, NfRelNS })
   return n
 end
 
-function norm(a::NfRelOrdFracIdl, k::FlintRationalField)
+function norm(a::NfRelOrdFracIdl, k::QQField)
   n = norm(a)
-  while !(n isa fmpq)
+  while !(n isa QQFieldElem)
     n = norm(n)
   end
   return n
@@ -472,7 +472,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     in(x::NumFieldElem, y::NfRelOrdFracIdl)
 
 Returns whether $x$ is contained in $y$.

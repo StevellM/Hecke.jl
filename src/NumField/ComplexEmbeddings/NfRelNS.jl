@@ -39,7 +39,7 @@ function Base.show(io::IO, ::MIME"text/plain", f::NumFieldEmbNfNS)
   print(io, "Embedding of\n")
   println(io, number_field(f))
   print(io, "extending the \n", f.base_field_emb, "\n")
-  print(io, "with roots ≈ ")
+  print(io, "with roots ")
   print(io, "[ ")
   for i in 1:length(f.data)
     _print_acb_neatly(io, f.data[i])
@@ -51,7 +51,7 @@ function Base.show(io::IO, ::MIME"text/plain", f::NumFieldEmbNfNS)
 end
 
 function Base.show(io::IO, f::NumFieldEmbNfNS)
-  print(io, "Embedding corresponding to (", f.base_field_emb, ") and ≈ ")
+  print(io, "Embedding corresponding to (", f.base_field_emb, ") and ")
   print(io, "[ ")
   for i in 1:length(f.data)
     _print_acb_neatly(io, f.data[i])
@@ -115,7 +115,7 @@ function (g::NumFieldEmbNfNS)(a::NfRelNSElem, prec::Int = 32)
       prec1 = max(prec1, precision(parent(data[2][j])))
     end
     CC = AcbField(prec1, cached = false)
-    CCy, y = PolynomialRing(CC, ngens(L), cached = false)
+    CCy, y = polynomial_ring(CC, ngens(L), cached = false)
     fatp = map_coefficients(let wprec = wprec; x -> evaluate(x, data[1], wprec) end, f, parent = CCy)
     pt = data[2]
     for c in fatp.coeffs
@@ -161,7 +161,7 @@ function _conjugates_data_new(L::NfRelNS{T}, p::Int) where T
 end
 
 function __conjugates_data_new(L::NfRelNS{T}, p::Int) where T
-  data = [_conjugates_data_new(component(L, j)[1], p) for j = 1:ngens(L)]
+  data = [_conjugates_data(component(L, j)[1], p) for j = 1:ngens(L)]
   plcs = complex_embeddings(base_field(L), conjugates = false)
   r, s = signature(L)
   res = Vector{Tuple{embedding_type(base_field(L)), Vector{acb}}}(undef, r+s)

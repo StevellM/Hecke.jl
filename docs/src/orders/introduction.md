@@ -17,8 +17,8 @@ and of relative number fields is the same.
 ## Orders of absolute number fields
 
 Assume that $K$ is defined as an absolute field.
-An order $\mathcal O$ of such a field are constructed (implicitely) by
-specifying a $\mathbf Z$-basis, which is refered to as the *basis* of $\mathcal
+An order $\mathcal O$ of such a field are constructed (implicitly) by
+specifying a $\mathbf Z$-basis, which is referred to as the *basis* of $\mathcal
 O$. If $(\omega_1,\dotsc,\omega_d)$ is the basis of $\mathcal O$ and
 $(\alpha_1,\dotsc,\alpha_d)$ the basis of $K$, then the
 matrix $B \in \operatorname{Mat}_{d \times d}(\mathbf Q)$ with
@@ -57,8 +57,8 @@ Usually, to create an order, one starts with a field (or a polynomial):
 
 ```@repl 1
 using Hecke; # hide
-Qx, x = PolynomialRing(QQ, "x");
-K, a = NumberField(x^2 - 10, "a");
+Qx, x = polynomial_ring(QQ, "x");
+K, a = number_field(x^2 - 10, "a");
 E = EquationOrder(K)
 Z_K = MaximalOrder(K)
 conductor(E)
@@ -78,6 +78,6 @@ norm(alpha)
 It is possible to work with residue fields as well:
 
 ```@repl 1
-Fp, mFp = ResidueField(Z_K, p)
+Fp, mFp = residue_field(Z_K, p)
 [ mFp(x) for x = basis(Z_K)]
 ```

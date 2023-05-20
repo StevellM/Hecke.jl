@@ -23,20 +23,20 @@
   p = @inferred inner_product(q, v, w)
   @test p == v * gram_matrix(q) * transpose(w)
 
-  Qx, x = PolynomialRing(FlintQQ, "x")
-  K1, a1 = NumberField(x^2 - 2, "a1")
-  K2, a2 = NumberField(x^3 - 2, "a2")
+  Qx, x = polynomial_ring(FlintQQ, "x")
+  K1, a1 = number_field(x^2 - 2, "a1")
+  K2, a2 = number_field(x^3 - 2, "a2")
 
-  K1t, t = PolynomialRing(K1, "t")
+  K1t, t = polynomial_ring(K1, "t")
   F = GF(3)
 
-  Hecke.change_base_ring(::FlintRationalField, ::Hecke.gfp_mat) = error("asd")
+  Hecke.change_base_ring(::QQField, ::Hecke.fpMatrix) = error("asd")
   @test_throws ErrorException quadratic_space(FlintQQ, F[1 2; 2 1])
 
-  Hecke.change_base_ring(::FlintRationalField, x::Hecke.gfp_mat) = x
+  Hecke.change_base_ring(::QQField, x::Hecke.fpMatrix) = x
   @test_throws ErrorException quadratic_space(FlintQQ, F[1 2; 2 1])
 
-  L, b = NumberField(t^2 + a1)
+  L, b = number_field(t^2 + a1)
 
   for K in [k, K1, K2, L]
     V = @inferred quadratic_space(K, 2)
@@ -114,7 +114,7 @@
     @test is_diagonal(gram_matrix(V, B))
 
     V1 = quadratic_space(K, zero_matrix(K,2,2))
-    V2, _, _ = orthogonal_sum(V, V1)
+    V2, _, _ = biproduct(V, V1)
     B2 = @inferred orthogonal_basis(V2)
     @test is_diagonal(gram_matrix(V2, B2))
 
@@ -123,10 +123,10 @@
     @test length(D) == 2
     @test issetequal(D, map(K, [1, -3]))
 
-    M = rand(MatrixSpace(K, 4, 4), -10:10)
+    M = rand(matrix_space(K, 4, 4), -10:10)
     M = M + transpose(M)
     while iszero(det(M))
-      M = rand(MatrixSpace(K, 4, 4), -10:10)
+      M = rand(matrix_space(K, 4, 4), -10:10)
       M = M + transpose(M)
     end
 
@@ -154,7 +154,7 @@
                                             quadratic_space(QQ, matrix(QQ, 2, 2, [1, 0, 0, 1])))
   @test fl
 
-  Qx, x = PolynomialRing(FlintQQ, "x", cached = false)
+  Qx, x = polynomial_ring(FlintQQ, "x", cached = false)
   f = x - 1;
   K, a = number_field(f)
   D = matrix(K, 2, 2, [1, 0, 0, 3]);
@@ -223,7 +223,7 @@
     OK = maximal_order(K)
     rk = 8
     det = K(1)
-    pinf = infinite_place(K, 1)
+    pinf = infinite_places(K)[1]
     for finite in [[ideal(OK, 2),ideal(OK,5)],[ideal(OK, 3),ideal(OK,7)]]
       for neg in [Dict(pinf=>0),Dict(pinf=>4),Dict(pinf=>8)]
         q = Hecke._quadratic_form_with_invariants(rk, det, finite, neg)
@@ -236,11 +236,10 @@
       end
     end
 
-    R,x = PolynomialRing(QQ,:x)
+    R,x = polynomial_ring(QQ,:x)
     F, a = number_field(x^2 - 3)
     OF = maximal_order(F)
-    inf1 = infinite_place(F, 1)
-    inf2 = infinite_place(F, 2)
+    inf1, inf2 = infinite_places(F)
     p2 = prime_ideals_over(OF, 2)[1]
     p3 = prime_ideals_over(OF, 3)[1]
     p5 = prime_ideals_over(OF, 5)[1]
@@ -304,19 +303,24 @@
   end
 
   @testset begin "finding isotropic vectors"
-    d  = fmpq[25//21, -1, 37//26, 31//45, -24//25, -9//25]
+    d  = QQFieldElem[25//21, -1, 37//26, 31//45, -24//25, -9//25]
     q = quadratic_space(QQ, diagonal_matrix(d))
     b, v = Hecke.is_isotropic_with_vector(q)
     @test b
     @test inner_product(q, v, v)==0
 
     # a degenerate example
-    d1  = fmpq[25//21, -1, 37//26, 31//45,0, -24//25, -9//25]
+    d1  = QQFieldElem[25//21, -1, 37//26, 31//45,0, -24//25, -9//25]
     q1 = quadratic_space(QQ, diagonal_matrix(d1))
     b1, v1 = Hecke.is_isotropic_with_vector(q1)
     @test b1
     @test any(i!=0 for i in v1)
     @test inner_product(q1, v1, v1)==0
+
+    q = quadratic_space(QQ,matrix(FlintQQ, 16, 16 ,[-2, -1, -1, -1, -1, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, -1, -2, -1, -1, -1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -2, 0, -1, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, -2, 0, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, 0, -2, -1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, -2, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, -1, -2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, -1, 1, 1, 1, 1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 2, -1, -1, -1, -1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 2, 0, 1, 1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0, 2, 0, 1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 0, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 1, 1, 2, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, 1, 1, 1, 2, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -1, -1, 0, -1, -1, 2]))
+    ok, v = is_isotropic_with_vector(q)
+    @test ok
+    @test iszero(inner_product(q, v,v))
 
   #  too long even for a long test
   #   if long_test
@@ -336,12 +340,12 @@
     g = Hecke.isometry_class(q)
     gg = Hecke.isometry_class(qq)
     gg_deg = Hecke.isometry_class(q_deg)
-    ggg = Hecke.isometry_class(orthogonal_sum(q,qq)[1])
+    ggg = Hecke.isometry_class(direct_product(q,qq)[1])
     @test g + gg == ggg
     @test g + gg - g == gg
     @test g + g + gg - g == gg+ g
     @test is_locally_represented_by(q, qq, 2) == represents(local_symbol(g,2), local_symbol(gg,2))
-    @test !is_locally_represented_by(orthogonal_sum(q,q)[1],q, 2)
+    @test !is_locally_represented_by(direct_sum(q,q)[1],q, 2)
     @test represents(gg, -1)
     @test represents(gg, 3)
     @test represents(gg, 2)
@@ -359,7 +363,7 @@
     @test dim(q) == dim(g)
     @test is_square(det(q)*det(g))
     @test witt_invariant(q, 2) == witt_invariant(g2)
-    q0 = quadratic_space(QQ,matrix(QQ,0,0,fmpq[]))
+    q0 = quadratic_space(QQ,matrix(QQ,0,0,QQFieldElem[]))
     g0 = Hecke.isometry_class(q0)
     g0p = Hecke.isometry_class(q0, 2)
     @test g == g+g0
@@ -367,16 +371,15 @@
     @test Hecke.isometry_class(representative(gg + gg + g)) == gg + gg + g
     @test Hecke.isometry_class(representative(g+g+gg+gg)) == g + g + gg+gg
     gdegenerte = Hecke.isometry_class(quadratic_space(QQ,zero_matrix(QQ,2,2)))
-    h = orthogonal_sum(g,gdegenerte)
+    h = direct_sum(g,gdegenerte)
     @test is_isotropic(h)
     @test is_isotropic(local_symbol(h,2))
     @test is_isotropic(local_symbol(h,3))
 
     # isometry classes over number fields
-    R, x = PolynomialRing(QQ, "x")
+    R, x = polynomial_ring(QQ, "x")
     F, a = number_field(x^2 -3)
-    infF = infinite_place(F,1)
-    infF2 = infinite_place(F,2)
+    infF, infF2 = infinite_places(F)
     q = quadratic_space(F, F[1 0; 0 a])
     @test Hecke.is_isotropic(q, infF)
     qq = quadratic_space(F, F[-49 0; 0 a])
@@ -384,7 +387,7 @@
     @test Hecke.is_isotropic(qq, infF2)
     @test Hecke._isisotropic_with_vector(gram_matrix(h))[1]
     @test !Hecke._isisotropic_with_vector(gram_matrix(q))[1]
-    hh,_,_ = orthogonal_sum(qq,quadratic_space(F,-gram_matrix(qq)))
+    hh,_,_ = biproduct(qq,quadratic_space(F,-gram_matrix(qq)))
     i = Hecke._maximal_isotropic_subspace(gram_matrix(hh))
     @test nrows(i)==dim(qq)
     @test i*gram_matrix(hh)*transpose(i) == 0
@@ -410,7 +413,7 @@
     @test is_isometric(q,r, p)
     @test is_isometric(q,r, infF)
     @test is_isometric(q,r)
-    L = Zlattice(gram=ZZ[1 1; 1 2])
+    L = integer_lattice(gram=ZZ[1 1; 1 2])
     g = genus(L)
     c1 = Hecke.isometry_class(ambient_space(L))
     c2 = Hecke.rational_isometry_class(g)
@@ -424,23 +427,23 @@
     vm = matrix(QQ, 1, 6, v)
     @test iszero(vm * F * transpose(vm))
 
-    q = quadratic_space(QQ,diagonal_matrix(fmpq[1,2,3]))
+    q = quadratic_space(QQ,diagonal_matrix(QQFieldElem[1,2,3]))
     @inferred Hecke.isometry_class(q)
     @test represents(q, 0)
     @test !is_isotropic(q)
     @inferred is_isotropic_with_vector(q)
     @test !is_isotropic_with_vector(q)[1]
-    q = quadratic_space(QQ,diagonal_matrix(fmpq[-8,2,3]))
+    q = quadratic_space(QQ,diagonal_matrix(QQFieldElem[-8,2,3]))
     @test represents(q, 0)
     @test is_isotropic(q)
-    q = quadratic_space(QQ,diagonal_matrix(fmpq[-1,2,3]))
+    q = quadratic_space(QQ,diagonal_matrix(QQFieldElem[-1,2,3]))
     @test represents(q, 0)
     @test !is_isotropic(q)
 
     for i in 1:100
       for r in 1:4
         I = [i for i in -20:20 if i!=0]
-        q = quadratic_space(QQ,diagonal_matrix(fmpq.(rand(I,r))))
+        q = quadratic_space(QQ,diagonal_matrix(QQFieldElem.(rand(I,r))))
         G = gram_matrix(q)
         q1 = quadratic_space(QQ, G[1:r-1,1:r-1])
         @test represents(q, q1)
@@ -452,4 +455,56 @@
       end
     end
   end
+
+  @testset "orthogonal proj" begin
+    L = root_lattice(:E, 8)
+    f = matrix(QQ, 8, 8, [ 1  0  0  0  0  0  0  0;
+                           0  1  0  0  0  0  0  0;
+                           1  2  4  4  3  2  1  2;
+                          -2 -4 -6 -5 -4 -3 -2 -3;
+                           2  4  6  4  3  2  1  3;
+                          -1 -2 -3 -2 -1  0  0 -2;
+                           0  0  0  0  0 -1  0  0;
+                          -1 -2 -3 -3 -2 -1  0 -1])
+    M = invariant_lattice(L, f)
+    pr = @inferred orthogonal_projection(ambient_space(L), basis_matrix(M))
+    @test pr.matrix^2 == pr.matrix # in fact, it is a projection
+    @test rank(pr.matrix) == 4 # M has rank 4 so pr should project onto a 4 dimensional subspace
+                               # of the ambient
+    @test rank(pr(M)) == 0     # orthogonal projection along M => M should be sent to the zero vector
+    N = orthogonal_submodule(L, M)
+    @test rank(pr(N)) == 4     # the image of N should be of full rank under the projection
+    @test basis_matrix(N)*pr.matrix == basis_matrix(N) # N is contained in the complement in
+                                                       # in the ambient, so its basis is fixed
+                                                       # by projection
+
+    r, B = left_kernel(pr.matrix)
+    @test r == 4
+    Msup = lattice(ambient_space(L), B)
+    @test is_sublattice(Msup, M) # A priori the kernel is bigger since M is integral
+    @test !is_integral(Msup)
+    @test intersect(L, Msup) == M # in our case M is primitive integral in L, it is a kernel
+    @test iszero(inner_product(ambient_space(L), basis_matrix(Msup), basis_matrix(N)))
+    @test rank(intersect(Msup, N)) == 0 # in fact this is the intersection of M and N
+                                        # which are orthogonal by def. of N
+
+    B2 = hnf(pr.matrix)[1:rank(pr.matrix), :] # basis matrix for the complement of M in the ambient
+    Nsup = lattice(ambient_space(L), B2)
+    @test is_sublattice(Nsup, N)
+    @test iszero(inner_product(ambient_space(L), B, B2))
+  end
+end
+
+@testset "direct sums" begin
+  K, _ = cyclotomic_field(27, cached=false)
+  V = quadratic_space(K, 4)
+  S, inj, proj = @inferred biproduct(V, rescale(V, -1//5))
+  @test dim(S) == 8
+  for i in 1:2, j in 1:2
+    f = compose(inj[i], proj[j])
+    m = f.matrix
+    @test i != j ? iszero(m) : isone(m)
+  end
+  S, inj, proj = @inferred biproduct(V, V, V)
+  @test_throws ArgumentError direct_product(V)
 end

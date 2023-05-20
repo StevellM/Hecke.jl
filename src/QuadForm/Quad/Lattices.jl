@@ -31,7 +31,7 @@ function lattice(V::QuadSpace, B::PMat; check::Bool = true)
 end
 
 # TODO: At the moment I assume that B is a pseudo-hnf (probably)
-@doc Markdown.doc"""
+@doc raw"""
     quadratic_lattice(K::Field, B::PMat ; gram = nothing,
                                           check:::Bool = true) -> QuadLat
 
@@ -47,7 +47,7 @@ By default, `B` is checked to be of full rank. This test can be disabled by sett
 """
 function quadratic_lattice(K::Field, B::PMat ; gram = nothing, check::Bool = true)
   @req nf(base_ring(B)) == K "Incompatible arguments: B must be defined over K"
-  @req (K isa NumField || K isa FlintRationalField) "K must be a number field"
+  @req (K isa NumField || K isa QQField) "K must be a number field"
   if gram === nothing
     V = quadratic_space(K, ncols(B))
   else
@@ -55,14 +55,15 @@ function quadratic_lattice(K::Field, B::PMat ; gram = nothing, check::Bool = tru
     @req is_square(gram) "gram must be a square matrix"
     @req ncols(B) == nrows(gram) "Incompatible arguments: the number of columns of B must correspond to the size of gram"
     gram = map_entries(K, gram)
-    V = quadratic_space(K, gram)
+    V = quadratic_space(K, gram, check = check)
   end
   return lattice(V, B, check = check)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     quadratic_lattice(K::Field, basis::MatElem ; gram = nothing,
-                                                 check::Bool = true) -> QuadLat
+                                                 check::Bool = true)
+                                                          -> Union{ZZLat, QuadLat}
 
 Given a matrix `basis` and a field `K`, return the quadratic lattice spanned
 by the rows of `basis` inside the quadratic space over `K` with Gram matrix `gram`.
@@ -72,11 +73,14 @@ matrix over `K` of size the number of columns of `basis`.
 
 By default, `basis` is checked to be of full rank. This test can be disabled by setting
 `check` to false.
+
+If $K = \mathbb{Q}$, then the output lattice is of type `ZZLat`, seen as a lattice
+over the ring $\mathbb{Z}$.
 """
 quadratic_lattice(K::Field, basis::MatElem ; gram = nothing, check::Bool = true) = quadratic_lattice(K, pseudo_matrix(basis), gram = gram, check = check)
 
-@doc Markdown.doc"""
-    quadratic_lattice(K::Field, gens::Vector ; gram = nothing) -> QuadLat
+@doc raw"""
+    quadratic_lattice(K::Field, gens::Vector ; gram = nothing) -> Union{ZZLat, QuadLat}
 
 Given a list of vectors `gens` and a field `K`, return the quadratic lattice
 spanned by the elements of `gens` inside the quadratic space over `K` with
@@ -87,12 +91,15 @@ matrix over `K` of size the length of the elements of `gens`.
 
 If `gens` is empty, `gram` must be supplied and the function returns the zero lattice
 in the quadratic space over `K` with gram matrix `gram`.
+
+If $K = \mathbb{Q}$, then the output lattice is of type `ZZLat`, seen as a lattice
+over the ring $\mathbb{Z}$.
 """
-function quadratic_lattice(K::Field, gens::Vector ; gram = nothing)
+function quadratic_lattice(K::Field, gens::Vector; gram = nothing, check::Bool = true)
   if length(gens) == 0
     @assert gram !== nothing
     pm = pseudo_matrix(matrix(K, 0, nrows(gram), []))
-    L = quadratic_lattice(K, pm, gram = gram, check = false)
+    L = quadratic_lattice(K, pm, gram = gram)
     return L
   end
   @assert length(gens[1]) > 0
@@ -105,22 +112,25 @@ function quadratic_lattice(K::Field, gens::Vector ; gram = nothing)
     @req is_square(gram) "gram must be a square matrix"
     @req length(gens[1]) == nrows(gram) "Incompatible arguments: the length of the elements of gens must correspond to the size of gram"
     gram = map_entries(K, gram)
-    V = quadratic_space(K, gram)
+    V = quadratic_space(K, gram, check = check)
   end
   return lattice(V, gens)
 end
 
-@doc Markdown.doc"""
-    quadratic_lattice(K::Field ; gram::MatElem) -> QuadLat
+@doc raw"""
+    quadratic_lattice(K::Field ; gram::MatElem) -> Union{ZZLat, QuadLat}
 
 Given a matrix `gram` and a field `K`, return the free quadratic
 lattice inside the quadratic space over `K` with Gram matrix `gram`.
+
+If $K = \mathbb{Q}$, then the output lattice is of type `ZZLat`, seen as a lattice
+over the ring $\mathbb{Z}$.
 """
-function quadratic_lattice(K::Field ; gram::MatElem)
+function quadratic_lattice(K::Field ; gram::MatElem, check::Bool = true)
   @req is_square(gram) "gram must be a square matrix"
   gram = map_entries(K, gram)
   B = pseudo_matrix(identity_matrix(K, ncols(gram)))
-  return quadratic_lattice(K, B, gram = gram, check = false)
+  return quadratic_lattice(K, B, gram = gram, check = check)
 end
 
 ################################################################################
@@ -224,7 +234,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     rescale(L::QuadLat, a) -> QuadLat
 
 Rescale the quadratic form `q` of the ambient space to `a \cdot q`
@@ -245,7 +255,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     bad_primes(L::QuadLat; even = false) -> Vector{NfOrdIdl}
 
 Return the prime ideals dividing the scale and volume of $L$. If `even == true`
@@ -291,7 +301,7 @@ end
 #
 ################################################################################
 
-function jordan_decomposition(L::Union{ZLat, QuadLat}, p)
+function jordan_decomposition(L::Union{ZZLat, QuadLat}, p)
   F = gram_matrix(ambient_space(L))
   even = is_dyadic(p)
   if even
@@ -402,7 +412,7 @@ function guess_max_det(L::QuadLat, p)
       vd = valuation(d, p)
       # I cannot use div(qd, 2), because qd might be negative and I need to round
       # toward 0, e.g., I need div(-3, 2) to be -2 and not -1.
-      v = vd - 2 * Int(fdiv(fmpz(qd), 2)) + e * (1 - n)
+      v = vd - 2 * Int(fdiv(ZZRingElem(qd), 2)) + e * (1 - n)
       if iseven(vd) && qd == vd + e && witt_invariant(L, p) == -1
         v = -e*n + 2
       end
@@ -432,7 +442,7 @@ function is_maximal_integral(L::QuadLat, p)
   R = base_ring(L)
   K = nf(R)
 
-  k, h = ResidueField(R, p)
+  k, h = residue_field(R, p)
   hext = extend(h, K)
 
   BM = local_basis_matrix(L, p, type = :submodule)

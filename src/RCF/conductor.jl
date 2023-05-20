@@ -94,9 +94,9 @@ end
 #  This functions constructs generators for 1+p^u/1+p^u+1
 #
 
-function _1pluspk_1pluspk1(K::AnticNumberField, p::NfOrdIdl, pk::NfOrdIdl, pv::NfOrdIdl, powers::Vector{Tuple{NfOrdIdl, NfOrdIdl}}, a::Union{Int, fmpz}, n::Int)
+function _1pluspk_1pluspk1(O::NfOrd, p::NfOrdIdl, pk::NfOrdIdl, pv::NfOrdIdl, powers::Vector{Tuple{NfOrdIdl, NfOrdIdl}}, a::Union{Int, ZZRingElem}, n::Int)
 
-  O = maximal_order(K)
+  L = nf(O)
   b = basis(pk, copy = false)
   N = basis_matrix(pv, copy = false)*basis_mat_inv(pk, copy = false)
   G = abelian_group(N.num)
@@ -124,7 +124,7 @@ function _1pluspk_1pluspk1(K::AnticNumberField, p::NfOrdIdl, pk::NfOrdIdl, pv::N
   end
   if mod(n,2)==0
     for i=1:length(gens)
-      gens[i] = make_positive(gens[i], fmpz(a))
+      gens[i] = make_positive(gens[i], ZZRingElem(a))
     end
   end
   return gens
@@ -137,7 +137,7 @@ end
 #
 #######################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     signature(C::ClassField) -> Int, Int
 
 Return the signature of the number field defined by $C$.
@@ -190,7 +190,7 @@ end
 #
 #######################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     conductor(C::ClassField) -> NfOrdIdl, Vector{InfPlc}
 
 Return the conductor of the abelian extension corresponding to $C$.
@@ -210,6 +210,7 @@ function conductor(C::T) where T <:Union{ClassField, ClassField_pp}
 
   cond, inf_plc = defining_modulus(C)
   O = order(cond)
+  @assert O === base_ring(C)
   if isone(cond) && isempty(inf_plc)
     return ideal(O,1), InfPlc[]
   end
@@ -230,7 +231,7 @@ function conductor(C::T) where T <:Union{ClassField, ClassField_pp}
       #the idea, I think is if p does divide the degree, then it
       #has to wildly ramify, hence the expo should be larger than one.
       #however, this is wrong:
-      #C6 = C2 x C3, then 3 divdes the degree, however, 3 can ramify in
+      #C6 = C2 x C3, then 3 divides the degree, however, 3 can ramify in
       #     C2 (tame!) and not in C3
       # example: 
       #  k = quadratic_field(21)[1]
@@ -263,7 +264,7 @@ function conductor(C::T) where T <:Union{ClassField, ClassField_pp}
       gens = GrpAbFinGenElem[]
       Q = abelian_group(Int[])
       while k1 >= 1
-        multg = _1pluspk_1pluspk1(K, p, p^k1, p^k2, powers, minimum(cond), expo)
+        multg = _1pluspk_1pluspk1(O, p, p^k1, p^k2, powers, minimum(cond), expo)
         for i = 1:length(multg)
           push!(gens, preimage(mp, ideal(O, multg[i])))
         end
@@ -318,14 +319,14 @@ end
 #
 ###############################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     is_conductor(C::Hecke.ClassField, m::NfOrdIdl, inf_plc::Vector{InfPlc}=InfPlc[]; check) -> NfOrdIdl, Vector{InfPlc}
 
 Checks if (m, inf_plc) is the conductor of the abelian extension corresponding to $C$. If `check` is `false`, it assumes that the
 given modulus is a multiple of the conductor.
 This is usually faster than computing the conductor.
 """
-function is_conductor(C::Hecke.ClassField, m::NfOrdIdl, inf_plc::Vector{InfPlc} = InfPlc[]; check::Bool=true)
+function is_conductor(C::Hecke.ClassField, m::NfOrdIdl, inf_plc::Vector{<: InfPlc} = InfPlc{AnticNumberField, NumFieldEmbNfAbs}[]; check::Bool=true)
   if isdefined(C, :conductor)
     real_cond = C.conductor
     return real_cond[1] == m && Set(real_cond[2]) == Set(inf_plc)
@@ -420,7 +421,7 @@ function is_conductor(C::Hecke.ClassField, m::NfOrdIdl, inf_plc::Vector{InfPlc} 
         return false
       end
     else
-      multg = _1pluspk_1pluspk1(K, P, P^(v-1), P^v, powers, cond.gen_one, expo)
+      multg = _1pluspk_1pluspk1(O, P, P^(v-1), P^v, powers, cond.gen_one, expo)
       gens = Vector{GrpAbFinGenElem}(undef, length(multg))
       for i = 1:length(multg)
         gens[i] = preimage(mp, ideal(O, multg[i]))
@@ -456,11 +457,11 @@ function absolute_discriminant(C::ClassField)
   return discriminant_sign(C) * norm(discriminant(C))*discriminant(OK)^degree(C)
 end
 
-function discriminant(C::ClassField, ::FlintRationalField)
+function discriminant(C::ClassField, ::QQField)
   return absolute_discriminant(C)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     discriminant(C::ClassField) -> NfOrdIdl
 
 Using the conductor-discriminant formula, compute the (relative) discriminant of $C$.
@@ -541,7 +542,7 @@ function discriminant(C::ClassField)
       s = s-1
       pk = p^s
       pv = pk*p
-      gens = _1pluspk_1pluspk1(K, p, pk, pv, powers, a, expo)
+      gens = _1pluspk_1pluspk1(O, p, pk, pv, powers, a, expo)
       for i=1:length(gens)
         push!(els, mp\ideal(O, gens[i]))
       end
@@ -581,7 +582,7 @@ end
 
 function is_abelian(K::NfRelNS)
   k = base_field(K)
-  kx, _ = PolynomialRing(k, "x", cached = false)
+  kx, _ = polynomial_ring(k, "x", cached = false)
   Ok = maximal_order(k)
   pols = [to_univariate(kx, x) for x in K.pol]
   d = ideal(Ok, Ok(discriminant(pols[1])))
@@ -632,7 +633,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     norm_group(K::NfRel{nf_elem}, mR::Hecke.MapRayClassGrp) -> Hecke.FinGenGrpAb, Hecke.FinGenGrpAbMap
 
     norm_group(K::NfRelNS{nf_elem}, mR::Hecke.MapRayClassGrp) -> Hecke.FinGenGrpAb, Hecke.FinGenGrpAbMap
@@ -645,11 +646,11 @@ function norm_group(K::NfRel{nf_elem}, mR::T, is_abelian::Bool = true; of_closur
 end
 function norm_group(K::NfRelNS{nf_elem}, mR::T, is_abelian::Bool = true; of_closure::Bool = false) where T <: Union{MapClassGrp, MapRayClassGrp}
   base_field(K) == nf(order(codomain(mR))) || error("field has to be over the same field as the ray class group")
-  kx, = PolynomialRing(base_field(K), "x", cached = false)
+  kx, = polynomial_ring(base_field(K), "x", cached = false)
   return norm_group([to_univariate(kx, x) for x = K.pol], mR, is_abelian, of_closure = of_closure)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     norm_group(f::Nemo.PolyElem, mR::Hecke.MapRayClassGrp, is_abelian::Bool = true; of_closure::Bool = false) -> Hecke.FinGenGrpAb, Hecke.FinGenGrpAbMap
 
     norm_group(f::Array{PolyElem{nf_elem}}, mR::Hecke.MapRayClassGrp, is_abelian::Bool = true; of_closure::Bool = false) -> Hecke.FinGenGrpAb, Hecke.FinGenGrpAbMap
@@ -710,7 +711,7 @@ function norm_group(l_pols::Vector{T}, mR::U, is_abelian::Bool = true; of_closur
     if divisible(N1, p) || divisible(denom, p)
       continue
     end
-    if divides(indexO, fmpz(p))[1]
+    if divides(indexO, ZZRingElem(p))[1]
       continue
     end
     found = false
@@ -783,7 +784,7 @@ end
 function defining_modulus(mC::MapClassGrp)
   OK = order(codomain(mC))
   I = ideal(OK, 1)
-  lp = Vector{InfPlc}()
+  lp = Vector{InfPlc{AnticNumberField, NumFieldEmbNfAbs}}()
   return I, lp
 end
 
@@ -858,7 +859,7 @@ function norm_group(KK::KummerExt, mp::NfToNfMor, mR::Union{MapRayClassGrp, MapC
   Q, mQ = quo(R, els, false)
   modu = lcm(minimum(defining_modulus(mR)[1]), index(ZK))
   prev = length(els)
-  #S = PrimesSet(minimum(defining_modulus(mR)[1]), fmpz(-1), minimum(defining_modulus(mR)[1]), fmpz(1))
+  #S = PrimesSet(minimum(defining_modulus(mR)[1]), ZZRingElem(-1), minimum(defining_modulus(mR)[1]), ZZRingElem(1))
   S = PrimesSet(200, -1, exponent(KK), 1)
   for p in S
     if !is_coprime(p, modu)
@@ -868,9 +869,9 @@ function norm_group(KK::KummerExt, mp::NfToNfMor, mR::Union{MapRayClassGrp, MapC
     if isempty(lp)
       continue
     end
-    D = Vector{Vector{gfp_poly}}(undef, length(KK.gen))
+    D = Vector{Vector{fpPolyRingElem}}(undef, length(KK.gen))
     for i = 1:length(D)
-      D[i] = Vector{gfp_poly}(undef, length(KK.gen[i].fac))
+      D[i] = Vector{fpPolyRingElem}(undef, length(KK.gen[i].fac))
     end
     first = false
     for i = 1:length(lp)
@@ -911,19 +912,19 @@ function norm_group(KK::KummerExt, mp::NfToNfMor, mR::Union{MapRayClassGrp, MapC
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     maximal_abelian_subfield(::Type{ClassField}, K::AnticNumberField) -> ClassField
 
 The maximal abelian subfield of $K$ as a class field, i.e. the norm group
 is computed and the corresponding `ray_class_field` created.
 """
 function maximal_abelian_subfield(::Type{ClassField}, K::AnticNumberField)
-  Zx, x = PolynomialRing(FlintZZ, cached = false)
+  Zx, x = polynomial_ring(FlintZZ, cached = false)
   QQ = rationals_as_number_field()[1]
   R, mR = ray_class_group(discriminant(maximal_order(K))*maximal_order(QQ), infinite_places(QQ), n_quo = degree(K))
   f = hom(QQ, K, K(1), check = false)
   N, mN = norm_group(f, mR)
-  return ray_class_field(mR, quo(R, N)[2])
+  return ray_class_field(mR, quo(R, mN, false)[2])
 end
 
 
@@ -936,13 +937,14 @@ function norm_group_map(R::ClassField{S, T}, r::Vector{<:ClassField}, map = fals
 
   fR = compose(pseudo_inv(R.quotientmap), R.rayclassgroupmap)
 
-  if degree(R) == 1
+  if degree(ZZRingElem, R) == 1
     @assert all(x->degree(x) == 1, r)
     return [hom(domain(fR), domain(x.quotientmap), GrpAbFinGenElem[]) for x = r]
   end
 
   lp, sR = find_gens(MapFromFunc(x->preimage(fR, x), IdealSet(base_ring(R)), domain(fR)),
                              PrimesSet(100, -1), minimum(mR))
+
   if map == false
     h = [hom(sR, GrpAbFinGenElem[preimage(compose(pseudo_inv(x.quotientmap), x.rayclassgroupmap), p) for p = lp]) for x = r]
   else
@@ -955,7 +957,7 @@ function norm_group_map(R::ClassField, r::ClassField, map = false)
   return norm_group_map(R, [r], map)[1]
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     maximal_abelian_subfield(K::NfRel{nf_elem}; of_closure::Bool = false) -> ClassField
 
 Using a probabilistic algorithm for the norm group computation, determine the maximal
@@ -977,10 +979,10 @@ function maximal_abelian_subfield(K::NfRel{nf_elem}; of_closure::Bool = false)
   r1, r2 = signature(base_field(K))
   C, mC = ray_class_group(dd, infinite_places(base_field(K))[1:r1], n_quo = degree(K))
   N, iN = norm_group(K, mC, of_closure = of_closure)
-  return ray_class_field(mC, quo(C, N)[2])
+  return ray_class_field(mC, quo(C, iN, false)[2])
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     maximal_abelian_subfield(A::ClassField, k::AnticNumberField) -> ClassField
 
 The maximal abelian extension of $k$ contained in $A$. $k$ must be a subfield of
@@ -993,7 +995,7 @@ function maximal_abelian_subfield(A::ClassField, k::AnticNumberField)
   return maximal_abelian_subfield(A, mp)
 end
 
-function maximal_abelian_subfield(A::ClassField, ::FlintRationalField)
+function maximal_abelian_subfield(A::ClassField, ::QQField)
   return maximal_abelian_subfield(A, Hecke.rationals_as_number_field()[1])
 end
 
@@ -1016,7 +1018,11 @@ end
 function maximal_abelian_subfield(A::ClassField, mp::NfToNfMor)
   k = domain(mp)
   K = codomain(mp)
-  ZK = maximal_order(K)
+  @assert base_field(A) == K
+  if degree(A) == 1
+    return A
+  end
+  ZK = base_ring(A)
   zk = maximal_order(k)
   # disc(ZK/Q) = N(disc(ZK/zk)) * disc(zk)^deg
   # we need the disc ZK/k, well a conductor.
@@ -1064,7 +1070,7 @@ function maximal_abelian_subfield(A::ClassField, mp::NfToNfMor)
   #Now, I extend this modulus to K
   f_M0 = Dict{NfOrdIdl, Int}()
   for (p, v) in f_m0
-    lp = prime_decomposition(mp, p)
+    lp = prime_decomposition(mp, p, ZK)
     if is_coprime(minimum(p, copy = false), expo*deg)
       for (P, e) in lp
         f_M0[P] = 1
@@ -1079,7 +1085,7 @@ function maximal_abelian_subfield(A::ClassField, mp::NfToNfMor)
   R, mR = Hecke.ray_class_group(ZK, f_M0, real_places(K), n_quo = expo * deg)
   r, mr = Hecke.ray_class_group(zk, f_m0, real_places(k), n_quo = expo * deg)
   lP, gS = Hecke.find_gens(mR, coprime_to = minimum(defining_modulus(mR1)[1]))
-  listn = NfOrdIdl[norm(mp, x) for x in lP]
+  listn = NfOrdIdl[norm(mp, x, order = zk) for x in lP]
   # Create the map between R and r by taking norms
   proj = hom(gS, GrpAbFinGenElem[mr\x for x in listn])
   #compute the norm group of A in R
@@ -1091,8 +1097,9 @@ function maximal_abelian_subfield(A::ClassField, mp::NfToNfMor)
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     ray_class_field(K::NfRel{nf_elem}) -> ClassField
+    ray_class_field(K::AnticNumberField) -> ClassField
 
 For a (relative) abelian extension, compute an abstract representation
 as a class field.
@@ -1106,7 +1113,16 @@ function ray_class_field(K::NfRel{nf_elem})
   return C
 end
 
-@doc Markdown.doc"""
+function ray_class_field(K::AnticNumberField)
+  C = maximal_abelian_subfield(ClassField, K)
+  @assert degree(C) <= degree(K)
+  if degree(C) != degree(K)
+    error("field is not abelian")
+  end
+  return C
+end
+
+@doc raw"""
     genus_field(A::ClassField, k::AnticNumberField) -> ClassField
 
 The maximal extension contained in $A$ that is the compositum of $K$
@@ -1121,7 +1137,150 @@ function genus_field(A::ClassField, k::AnticNumberField)
   return ray_class_field(A.rayclassgroupmap, GrpAbFinGenMap(A.quotientmap * quo(domain(h), kernel(h)[1])[2]))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
+    genus_field(A::ClassField) -> ClassField
+
+The maximal extension contained in $A$ that is the compositum of $K$
+with an abelian extension of $Q$.
+"""
+function genus_field(A::ClassField)
+  return genus_field(A, rationals_as_number_field()[1])
+end
+
+#TODO: add version with a 2nd field....
+#  using:
+#      prime_decomposition(f::Map, p::NfOrdIdl, ZK::NfOrd = maximal_order(codomain(f)))
+#      PrimeIdealsSet
+@doc raw"""
+    maximal_central_subfield(A::ClassField) -> ClassField
+
+A very probabilistic approach to compute the maximal central subfield in $A$
+via ideals of norm 1.
+
+Use at your own peril.
+"""
+function maximal_central_subfield(A::ClassField; stable::Int = 3, lower_bound::Int = -1)
+  K = base_field(A)
+  max_stable = stable * ngens(norm_group(A)[1])
+  ZK = base_ring(A)
+  D = norm(defining_modulus(A)[1])
+  N, mN = norm_group(A)
+
+  #makes only sense if the defining modulus is in Z
+
+  if is_normal(K)
+    #central = mod(
+    G, mG = automorphism_group(K)
+    if order(G) == 1
+      return A
+    end
+    #TODO: use induce_hom to get h in ONE go, add one(G)
+    gs = map(mG, gens(G))
+    pushfirst!(gs, mG(id(G)))
+    h = [norm_group_map(A, A, x) for x = gs]
+    k = image(h[1]-h[2])[1]
+    for i=3:length(h)
+      k = k + image(h[1] - h[i])[1]
+    end
+    return fixed_field(A, k)
+  end
+
+  Q, mQ = quo(N, [N[0]])
+  st = max_stable
+
+  for p = PrimesSet(100, -1)
+    if D % p == 0
+      continue
+    end
+    lp = prime_decomposition(ZK, p)
+    n = matrix(ZZ, 1, length(lp), [degree(P[1]) for P = lp])
+    r, k = kernel(n)
+    S = [prod((lp[j][1]//1)^k[j, i] for j = 1:length(lp)) for i=1:r]
+    s = [mQ(preimage(mN, numerator(p))- preimage(mN, denominator(p)*ZK)) for p = S]    
+    if all(iszero, s)
+      st -= 1
+      if st <= 0
+        return fixed_field(A, kernel(mQ)[1])
+      end
+      continue
+    end
+    st = max_stable
+    Q, mmQ = quo(Q, s)
+    mQ = mQ*mmQ
+    if order(Q) <= lower_bound
+      return fixed_field(A, kernel(mQ)[1])
+    end
+  end
+end
+
+function small_knot(k::AnticNumberField, stable::Int = 5)
+  zk = lll(maximal_order(k))
+  l = lorenz_module(rationals_as_number_field()[1], degree(k))
+  #TODO: can we use n_quo? ie. is the knot bounded by the degree of k?
+  #=
+    Gamma = ray_class_field(l*zk, ...), so the knot
+    will live in Gamma
+    G the genus field corresponds to the group of ideals
+      U = { A in Z_K | exists B in Z_Gamma | N(A) = N(B) }
+    Z should be 
+      V = { A in Z_K | N(A) = Z_k ( = Z here) }
+    Question: U^n < V or exp(quo(U, V)) | n  
+
+    A in U -> B in Gamma mit N(A) = N(B), C := N_Gamma/Z(B)
+    then N(C) = N(A) (norm tower), D := N_Z/K(C)
+    then N(D) = N(A) and D in V, so D = gamma E
+    with N(E) = 1, thus N(A) = N(D) = N(gamma)*Z
+
+    A^n equiv A^n N(gamma)^-1 and N(A^n/N(gamma)) = N(A)^n/N(gamma)^n 
+
+    hopefully gamma and N(gamma) are = 1 mod the modulus as well
+
+    => we can use n_quo
+  =#
+
+  Gamma = ray_class_field(norm(l)*zk, isodd(degree(k)) ? InfPlc[] : real_places(k), n_quo = degree(k))
+
+  G = genus_field(Gamma)
+  Z = maximal_central_subfield(Gamma, stable = stable, lower_bound = degree(G))
+ 
+  k = degree(Z)//degree(G)
+
+#  println("starting with Z:", snf(norm_group(Z)[1])[1])
+#  println("starting with G:", snf(norm_group(G)[1])[1])
+
+  # Idea
+  # in the easiest case, Z just has some cyclic factor more than G, so
+  # the "same" knot can be achieved with a smaller field.
+  # Systematically: we want to replace U and V by U+x and V+x s.th.
+  # the quotient is unchanged: U/V = (U+x)/(V+x)
+  # Thus (V+x) cap U = V
+  # if U/V has a complement C/V in W/V, then x = C works.
+  # so we saturate U/V in W.V and then take the complement...
+
+  U = kernel(G.quotientmap)[1]
+  V = kernel(Z.quotientmap)[1]
+  W = domain(Gamma.quotientmap)
+  q2, mq2 = quo(W, V)
+  fl, mp = is_subgroup(U, W)
+  q1 = sub(q2, map(mq2, map(mp, gens(U))))[1]
+
+  q1 = saturate(q1, q2)
+  fl, x = has_complement(q1, q2)
+  @assert fl
+  x = preimage(mq2, x)[1]
+
+  Z = fixed_field(Gamma, Gamma.quotientmap(V+x)[1])
+  G = fixed_field(Gamma, Gamma.quotientmap(U+x)[1])
+
+  @assert k == degree(Z)//degree(G)
+
+#  println("now with Z:", snf(norm_group(Z)[1])[1])
+#  println("now with G:", snf(norm_group(G)[1])[1])
+
+  return Z, G
+end
+
+@doc raw"""
     subfields(C::ClassField; degree::Int) -> Vector{ClassField}
 
 Find all subfields of $C$ over the base field.
@@ -1144,7 +1303,7 @@ function subfields(C::ClassField; degree::Int = -1)
   end
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     normal_closure(C::ClassField) -> ClassField
 
 For a ray class field $C$ extending a normal base field $k$, compute the
@@ -1166,12 +1325,11 @@ function normal_closure(C::ClassField)
   h = norm_group_map(D, C)
   aut1 = small_generating_set(aut)
   act = Hecke.induce_action(D, aut1)
+
   k = kernel(h, true)[1]
+  k = intersect(k, intersect([x(k)[1] for x = act]))
 
-  k = intersect([x(k)[1] for x = act])
-
-  q, mq = quo(domain(h), k)
-  return ray_class_field(D.rayclassgroupmap, GrpAbFinGenMap(D.quotientmap * mq))
+  return fixed_field(D, k)
 end
 
 function rewrite_with_conductor(C::ClassField)
@@ -1191,7 +1349,7 @@ function induce_action(C::ClassField, Aut::Vector{Hecke.NfToNfMor} = Hecke.NfToN
   return induce_action(C.rayclassgroupmap, Aut, C.quotientmap)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     is_normal(C::ClassField) -> Bool
 
 For a class field $C$ defined over a normal base field $k$, decide
@@ -1255,7 +1413,7 @@ function is_normal_difficult(C::ClassField)
   f = K.pol
   I = ideal(O, discriminant(O))
   r, mr = ray_class_group(I, real_places(K))
-  Kt, t = PolynomialRing(K, "t", cached = false)
+  Kt, t = polynomial_ring(K, "t", cached = false)
   g = divexact(evaluate(f, t), t - gen(K))
   G, mG = norm_group(g, mr, of_closure = true)
   k, mk = cokernel(mG)
@@ -1289,7 +1447,7 @@ function is_normal_difficult(C::ClassField)
 
   p = 1
   d = (discriminant(O)^degree(C1))*numerator(norm(discriminant(C1)))
-  ld = (ceil(fmpz, log(d)))
+  ld = (ceil(ZZRingElem, log(d)))
   n = degree(C1)*nK
   bound = (4*ld + 2*n +5)^2
   mp = pseudo_inv(C.quotientmap) * C.rayclassgroupmap
@@ -1314,7 +1472,7 @@ function is_normal_difficult(C::ClassField)
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     is_central(C::ClassField) -> Bool
 
 For a class field $C$ defined over a normal base field $k$, decide
@@ -1341,6 +1499,7 @@ function is_central(C::ClassField)
   return all(x -> all(y -> x(y) == y, g), act)
 end
 
+#TODO: remove and replace by reduce(lcm, ..., init?)
 function lcm(A::AbstractArray{<:NfAbsOrdIdl})
   a = first(A)
   a = ideal(order(a), 1)
@@ -1356,7 +1515,7 @@ Base.copy(f::Generic.MPoly) = deepcopy(f)
 Base.copy(f::Generic.Poly) = deepcopy(f)
 
 
-@doc Markdown.doc"""
+@doc raw"""
     lorenz_module(k::AnticNumberField, n::Int) -> NfOrdIdl
 
 Finds an ideal $A$ s.th. for all positive units $e = 1 \bmod A$ we have that
@@ -1365,12 +1524,21 @@ If `containing` is set, it has to be an integral ideal. The resulting ideal will
 a multiple of this.
 """
 function lorenz_module(k::AnticNumberField, n::Int; containing=false)
+  if degree(k) == 1 #k == Q
+    #in zk = ZZ the units are \pm 1. any unit ==1 mod 4 has to be +1 hence
+    #is a power.
+    if containing === false
+      return maximal_order(k)*4
+    else
+      return lcm(containing, 4*maximal_order(k))
+    end
+  end
   lf = factor(n)
   return Base.reduce(lcm, [lorenz_module_pp(k, Int(p), l, containing = containing) for (p,l) = lf.fac])
 end
 
 #TODO: is this the right interface???
-@doc Markdown.doc"""
+@doc raw"""
     (::NfAbsOrdIdlSet)(m::Map, I::NfOrdIdl) -> NfOrdIdl
 
 Given an embedding $m:k\to K$ of number fields and an ideal $I$ in $k$,
@@ -1383,7 +1551,7 @@ end
 
 #TODO: write code (map?) to change polynomial rings other than evaluate
 
-@doc Markdown.doc"""
+@doc raw"""
     norm(m::T, a::nf_elem) where T <: Map{AnticNumberField, AnticNumberField} -> nf_elem
 
 Given an embedding $m:k\to K$ of number fields and an element in $K$, find the norm
@@ -1400,7 +1568,7 @@ function norm(m::T, a::nf_elem) where T <: Map{AnticNumberField, AnticNumberFiel
   =#
   @assert K == parent(a)
   k = domain(m)
-  kt, t = PolynomialRing(k, cached = false)
+  kt, t = polynomial_ring(k, cached = false)
   Qt = parent(K.pol)
   h = gcd(gen(k) - evaluate(Qt(m(gen(k))), t), evaluate(K.pol, t))
   return resultant(h, mod(evaluate(Qt(a), t), h))
@@ -1410,10 +1578,10 @@ function norm(m::T, a::FacElem{nf_elem, AnticNumberField}) where T <: Map{AnticN
   K = codomain(m)
   @assert K == base_ring(a)
   k = domain(m)
-  kt, t = PolynomialRing(k, cached = false)
+  kt, t = polynomial_ring(k, cached = false)
   Qt = parent(K.pol)
   h = gcd(gen(k) - evaluate(Qt(m(gen(k))), t), evaluate(K.pol, t))
-  d = Dict{nf_elem, fmpz}()
+  d = Dict{nf_elem, ZZRingElem}()
   for (e,v) = a.fac
     n = resultant(h, mod(change_base_ring(k, Qt(e), parent = kt), h))
     if haskey(d, n)
@@ -1446,7 +1614,7 @@ end
 
 Base.intersect(R::NfAbsOrd, I::NfOrdFracIdl) = intersect(I, R)
 
-@doc Markdown.doc"""
+@doc raw"""
     content_ideal(f::PolyElem{nf_elem}, R::NfAbsOrd) -> NfAbsOrdIdl
 
 The fractional $R$-ideal generated by the coefficients of $f$.
@@ -1457,7 +1625,7 @@ function content_ideal(f::PolyElem{nf_elem}, R::NfAbsOrd)
   return i
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     content_ideal(f::PolyElem{NfAbsOrdElem}) -> NfAbsOrdIdl
 
 The ideal generated by the coefficients of $f$.
@@ -1516,7 +1684,7 @@ function lorenz_eta_level(k::AnticNumberField)
   # find max r s.th. eta_r in k, eta_(r+1) not in k
   # where eta_r = (zeta_(2^r) + 1/zeta_(2^r))
   r = 2
-  x = PolynomialRing(FlintZZ, cached = false)[2]
+  x = polynomial_ring(FlintZZ, cached = false)[2]
   f = cos_minpoly(2^r, x)
   while has_root(f, k)[1]
     r += 1

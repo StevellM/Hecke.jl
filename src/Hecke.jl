@@ -32,7 +32,7 @@
 ################################################################################
 
 
-@doc Markdown.doc"""
+@doc raw"""
 Hecke is a Julia package for algorithmic algebraic number theory.
 For more information please visit
 
@@ -68,6 +68,8 @@ using LinearAlgebra, Markdown, InteractiveUtils, Libdl, Distributed, Printf, Spa
 import AbstractAlgebra
 import AbstractAlgebra: get_cached!, @alias
 
+import AbstractAlgebra: pretty, Lowercase, LowercaseOff, Indent, Dedent
+
 import LinearAlgebra: dot, nullspace, rank, ishermitian
 
 import SparseArrays: nnz
@@ -86,29 +88,31 @@ import Nemo
 if isdefined(Nemo, :IntegerUnion)
   import Nemo.IntegerUnion
 else
-  const IntegerUnion = Union{Integer, Nemo.fmpz}
+  const IntegerUnion = Union{Integer, Nemo.ZZRingElem}
 end
+
+const RationalUnion = Union{IntegerUnion, Rational{<: Integer}, Nemo.QQFieldElem}
 
 import Pkg
 
-exclude = [:Nemo, :AbstractAlgebra, :RealField, :zz, :qq, :factor, :call,
+exclude = [:Nemo, :AbstractAlgebra, :RealNumberField, :zz, :qq, :factor, :call,
            :factors, :parseint, :strongequal, :window, :xgcd, :rows, :cols,
-           :can_solve, :set_entry!, :Ideal, :IdealSet]
+           :can_solve, :set_entry!, :factor]
 
 for i in names(Nemo)
-  i in exclude && continue
+  (i in exclude || !isdefined(Nemo, i)) && continue
   eval(Meta.parse("import Nemo." * string(i)))
   eval(Expr(:export, i))
 end
 
-import Nemo: acb_struct, Ring, Group, Field, NmodRing, nmod, arf_struct,
-             elem_to_mat_row!, elem_from_mat_row, gfp_elem, gfp_mat,
-             gfp_fmpz_elem, Zmodn_poly, Zmodn_mat, GaloisField,
-             GaloisFmpzField, acb_vec, array, acb_vec_clear, force_coerce,
-             force_op, fmpz_mod_ctx_struct, divisors
+import Nemo: acb_struct, Ring, Group, Field, zzModRing, zzModRingElem, arf_struct,
+             elem_to_mat_row!, elem_from_mat_row, fpFieldElem, fpMatrix,
+             FpFieldElem, Zmodn_poly, Zmodn_mat, fpField,
+             FpField, acb_vec, array, acb_vec_clear, force_coerce,
+             force_op, fmpz_mod_ctx_struct, divisors, is_zero_entry
 
 export show, StepRange, domain, codomain, image, preimage, modord, resultant,
-       next_prime, is_power, number_field, factor
+       next_prime, is_power, number_field, factor, @vtime, RationalUnion
 
 
 ###############################################################################
@@ -119,17 +123,15 @@ export show, StepRange, domain, codomain, image, preimage, modord, resultant,
 
 const pkgdir = joinpath(dirname(pathof(Hecke)), "..")
 
-global const number_field = NumberField
-
 function MaximalOrder
 end
 
 global const maximal_order = MaximalOrder
 
 function __init__()
-  # Because of serialization/deserialization problems, the base rings would differ otherwise.
-  Hecke.Globals.Zx.base_ring = FlintZZ
-  Hecke.Globals.Qx.base_ring = FlintQQ
+  # verify some base rings survived serialization/deserialization
+  @assert base_ring(Hecke.Globals.Zx) === FlintZZ
+  @assert base_ring(Hecke.Globals.Qx) === FlintQQ
 
   # Check if were loaded from another package
   # if VERSION < 1.7.*, only the "other" package will have the
@@ -170,7 +172,7 @@ function __init__()
     printstyled(" $VERSION_NUMBER ", color = :green)
     print("... \n ... which comes with absolutely no warranty whatsoever")
     println()
-    println("(c) 2015-2022 by Claus Fieker, Tommy Hofmann and Carlo Sircana")
+    println("(c) 2015-2023 by Claus Fieker, Tommy Hofmann and Carlo Sircana")
     println()
   end
 
@@ -209,9 +211,9 @@ end
 
 module Globals
   using Hecke
-  const Qx, _ = PolynomialRing(FlintQQ, "x", cached = false)
-  const Zx, _ = PolynomialRing(FlintZZ, "x", cached = false)
-  const Zxy, _ = PolynomialRing(FlintZZ, ["x", "y"], cached = false)
+  const Qx, _ = polynomial_ring(FlintQQ, "x", cached = false)
+  const Zx, _ = polynomial_ring(FlintZZ, "x", cached = false)
+  const Zxy, _ = polynomial_ring(FlintZZ, ["x", "y"], cached = false)
 end
 
 using .Globals
@@ -225,7 +227,7 @@ using .Globals
 # We have our own factor in Hecke, but some functions in AA fall back to
 # AA.factor, so let's add a fallback.
 
-AbstractAlgebra.factor(x) = factor(x)
+AbstractAlgebra.factor(x::RingElement) = factor(x)
 
 ################################################################################
 #
@@ -294,7 +296,7 @@ function conjugate_data_arb_roots(K::AnticNumberField, p::Int)
       while true
         R = ArbField(pstart, cached = false)
         # We need to pair them
-        _rall = Tuple{arb, arb}[ sincospi(fmpq(2*k, f), R) for k in 1:f if gcd(f, k) == 1]
+        _rall = Tuple{arb, arb}[ sincospi(QQFieldElem(2*k, f), R) for k in 1:f if gcd(f, k) == 1]
         if all(x -> radiuslttwopower(x[1], -p) && radiuslttwopower(x[2], -p), _rall)
           CC = AcbField(pstart, cached = false)
           rall = acb[ CC(l[2], l[1]) for l in _rall]
@@ -397,7 +399,7 @@ const pkg_version = _get_version()
 # to use:
 # in HeckeMap
 #   in the show function, start with @show_name(io, map)
-# for other objetcs
+# for other objects
 #   add @attributes to the struct
 #   add @show_name(io, obj) to show
 #   optionally, add @show_special(io, obj) as well
@@ -495,7 +497,7 @@ macro vtime(args...)
   if length(args) == 2
     msg = string(args[2])
     quote
-      if get_verbose_level($(args[1])) >= 1
+      if get_verbosity_level($(args[1])) >= 1
         local t0 = time_ns()
         local val = $(esc(args[2]))
         println((time_ns()-t0)/1e9, " @ ", $msg)
@@ -508,7 +510,7 @@ macro vtime(args...)
   elseif length(args) == 3
     msg = string(args[3])
     quote
-      if get_verbose_level($(args[1])) >= $(args[2])
+      if get_verbosity_level($(args[1])) >= $(args[2])
         local t0 = time_ns()
         local val = $(esc(args[3]))
         println((time_ns()-t0)/1e9, " @ ", $msg)
@@ -535,7 +537,7 @@ end
 
 macro vtime_add(flag, level, var, key, value)
   quote
-    if get_verbose_level($flag) >= $level
+    if get_verbosity_level($flag) >= $level
       _vtime_add($(esc(var)).time, $key, $(esc(value)))
     end
   end
@@ -544,7 +546,7 @@ end
 macro vtime_add_elapsed(flag, level, var, key, stmt)
   quote
     tm = @elapsed $(esc(stmt))
-    if get_verbose_level($flag) >= $level
+    if get_verbosity_level($flag) >= $level
       _vtime_add($(esc(var)).time, $key, tm)
     end
   end
@@ -577,8 +579,7 @@ Base.showerror(io::IO, ::NotImplemented) =
 function checkbounds(a::Int, b::Int) nothing; end;
 
 ################################################################################
-add_assert_scope(:PID_Test)
-set_assert_level(:PID_Test, 0)
+add_assertion_scope(:PID_Test)
 
 ################################################################################
 #
@@ -587,6 +588,7 @@ set_assert_level(:PID_Test, 0)
 ################################################################################
 
 include("HeckeTypes.jl")
+include("Sparse.jl")
 include("NumField/NfRel/Types.jl")
 include("AlgAss/Types.jl")
 include("AlgAssAbsOrd/Types.jl")
@@ -600,7 +602,6 @@ include("NumField.jl")
 include("NumFieldOrd.jl")
 include("GenOrd.jl")
 include("FunField.jl")
-include("Sparse.jl")
 include("BigComplex.jl")
 include("conjugates.jl")
 include("analytic.jl")
@@ -616,6 +617,7 @@ include("AlgAssRelOrd.jl")
 include("LocalField.jl")
 include("QuadForm.jl")
 include("FieldFactory.jl")
+include("RieSrf.jl")
 include("../examples/NFDB.jl")
 
 const _RealRings = _RealRing[_RealRing()]
@@ -634,9 +636,11 @@ const _RealRings = _RealRing[_RealRing()]
 #
 ################################################################################
 
-for T in subtypes(Map(HeckeMap))
-  (M::T)(a) = image(M, a)
-end
+#for T in subtypes(Map(HeckeMap))
+#  (M::T)(a) = image(M, a)
+#end
+
+(f::Map{D, C, <:Hecke.HeckeMap, T} where {D, C, T})(x) = image(f, x)
 
 ################################################################################
 #
@@ -644,7 +648,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     vshow(A) -> Nothing
 
 Prints all fields of $A$.
@@ -655,7 +659,7 @@ function vshow(A)
       print("$i: ")
       println(getfield(A, i), "\n")
     else
-      println("$i: Not definied")
+      println("$i: Not defined")
     end
   end
 end
@@ -670,7 +674,7 @@ end
 
 elem_type(::Type{FacElemMon{T}}) where {T} = FacElem{elem_type(T), T}
 
-elem_type(::Type{Generic.ResRing{T}}) where {T} = Generic.Res{T}
+elem_type(::Type{Generic.ResidueRing{T}}) where {T} = Generic.ResidueRingElem{T}
 
 ################################################################################
 #
@@ -693,8 +697,6 @@ include("Aliases.jl")
 ################################################################################
 
 include("Deprecations.jl")
-
-
 
 ################################################################################
 #
@@ -905,5 +907,11 @@ precompile(class_group, (NfAbsOrd{AnticNumberField, nf_elem},))
 @inline __get_rounding_mode() = Base.MPFR.rounding_raw(BigFloat)
 
 using .NormRel
+
+#if ccall(:jl_generating_output, Cint, ()) == 1   # if we're precompiling the package
+#  let
+#    include(joinpath("..", "system", "precompile.jl"))
+#  end
+#end
 
 end # module

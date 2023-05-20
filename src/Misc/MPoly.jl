@@ -3,7 +3,7 @@
 ###############################################################################
 
 #TODO: only makes sense if f is univ (uses only one var)
-function (Rx::FmpzPolyRing)(f::fmpq_mpoly)
+function (Rx::ZZPolyRing)(f::QQMPolyRingElem)
   fp = Rx()
   R = base_ring(Rx)
   d = denominator(f)
@@ -17,7 +17,7 @@ function (Rx::FmpzPolyRing)(f::fmpq_mpoly)
   return fp
 end
 
-function (Rx::FmpqPolyRing)(f::fmpq_mpoly)
+function (Rx::QQPolyRing)(f::QQMPolyRingElem)
   fp = Rx()
   R = base_ring(Rx)
   for t = terms(f)
@@ -29,7 +29,7 @@ function (Rx::FmpqPolyRing)(f::fmpq_mpoly)
   return fp
 end
 
-function (Rx::GFPPolyRing)(f::fmpq_mpoly)
+function (Rx::fpPolyRing)(f::QQMPolyRingElem)
   fp = Rx()
   R = base_ring(Rx)
   d = denominator(f)
@@ -42,19 +42,19 @@ function (Rx::GFPPolyRing)(f::fmpq_mpoly)
   return fp * inv(R(d))
 end
 
-function mul!(res::fmpq_mpoly, a::fmpq_mpoly, c::fmpz)
+function mul!(res::QQMPolyRingElem, a::QQMPolyRingElem, c::ZZRingElem)
   ccall((:fmpq_mpoly_scalar_mul_fmpz, libflint), Nothing,
-    (Ref{fmpq_mpoly}, Ref{fmpq_mpoly}, Ref{fmpz}, Ref{FmpqMPolyRing}), res, a, c, parent(a))
+    (Ref{QQMPolyRingElem}, Ref{QQMPolyRingElem}, Ref{ZZRingElem}, Ref{QQMPolyRing}), res, a, c, parent(a))
   return nothing
 end
 
-#@doc Markdown.doc"""
+#@doc raw"""
 #    is_univariate(f::Generic.MPoly{T}) where T <: NumFieldElem -> Bool, PolyElem{T}
 #
 #Tests if $f$ involves only one variable. If so, return a corresponding univariate polynomial.
 #"""
 #function is_univariate(f::Generic.MPoly{T}) where T
-#  kx, x = PolynomialRing(base_ring(f), "x", cached = false)
+#  kx, x = polynomial_ring(base_ring(f), "x", cached = false)
 #  if ngens(parent(f)) == 1
 #    f1 = kx()
 #    for i = 1:f.length
@@ -85,16 +85,16 @@ end
 #  return true, f1
 #end
 
-function (R::FmpzMPolyRing)(f::fmpq_mpoly)
+function (R::ZZMPolyRing)(f::QQMPolyRingElem)
   return map_coefficients(ZZ, f, parent = R)
 end
-Hecke.ngens(R::FmpzMPolyRing) = length(gens(R))
+Hecke.ngens(R::ZZMPolyRing) = length(gens(R))
 
 #check with Nemo/ Dan if there are better solutions
 #the block is also not used here I think
 #functionality to view mpoly as upoly in variable `i`, so the
 #coefficients are mpoly's without variable `i`.
-function Hecke.leading_coefficient(f::MPolyElem, i::Int)
+function Hecke.leading_coefficient(f::MPolyRingElem, i::Int)
   g = MPolyBuildCtx(parent(f))
   d = degree(f, i)
   for (c, e) = zip(coefficients(f), exponent_vectors(f))
@@ -111,7 +111,7 @@ end
 `content` as a polynomial in the variable `i`, i.e. the gcd of all the
 coefficients when viewed as univariate polynomial in `i`.
 """
-function Hecke.content(f::MPolyElem, i::Int)
+function Hecke.content(f::MPolyRingElem, i::Int)
   return reduce(gcd, coefficients(f, i))
 end
 
@@ -119,7 +119,7 @@ end
 The coefficients of `f` when viewed as a univariate polynomial in the `i`-th
 variable.
 """
-function Hecke.coefficients(f::MPolyElem, i::Int)
+function Hecke.coefficients(f::MPolyRingElem, i::Int)
   d = degree(f, i)
   cf = [MPolyBuildCtx(parent(f)) for j=0:d]
   for (c, e) = zip(coefficients(f), exponent_vectors(f))

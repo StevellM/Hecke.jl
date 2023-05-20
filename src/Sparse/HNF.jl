@@ -1,10 +1,12 @@
+export reduce_full, find_row_starting_with, hnf_extend!, hnf_kannan_bachem
+
 ################################################################################
 #
 #  Reduction of sparse rows modulo sparse upper triangular matrices
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     reduce(A::SMat{T}, g::SRow{T}) -> SRow{T}
 
 Given an upper triangular matrix $A$ over a field and a sparse row $g$, this
@@ -14,7 +16,7 @@ function reduce(A::SMat{T}, g::SRow{T}) where {T <: FieldElement}
   return _reduce_field(A, g)
 end
 
-function reduce(A::SMat{nmod}, g::SRow{nmod})
+function reduce(A::SMat{zzModRingElem}, g::SRow{zzModRingElem})
   return _reduce_field(A, g)
 end
 
@@ -49,8 +51,8 @@ function _reduce_field(A::SMat{T}, g::SRow{T}) where {T}
   return g
 end
 
-@doc Markdown.doc"""
-    reduce(A::SMat{fmpz}, g::SRow{fmpz}) -> SRow{fmpz}
+@doc raw"""
+    reduce(A::SMat{ZZRingElem}, g::SRow{ZZRingElem}) -> SRow{ZZRingElem}
 
 Given an upper triangular matrix $A$ over a field and a sparse row $g$, this
 function reduces $g$ modulo $A$.
@@ -69,7 +71,8 @@ function reduce(A::SMat{T}, g::SRow{T}) where {T}
     if j > nrows(A) || A.rows[j].pos[1] > s
       if g.values[1] < 0
         if !new_g
-          g = copy(g)
+          g = deepcopy(g)
+          new_g = true
         end
         for i=1:length(g.values)
           g.values[i] *= -1
@@ -78,6 +81,10 @@ function reduce(A::SMat{T}, g::SRow{T}) where {T}
       return g
     end
     p = g.values[1]
+    if !new_g
+      g = deepcopy(g)
+      new_g = true
+    end
     if divides(p, A.rows[j].values[1])[1]
       g = Hecke.add_scaled_row(A[j], g, - divexact(p, A.rows[j].values[1]))
       new_g = true
@@ -96,7 +103,8 @@ function reduce(A::SMat{T}, g::SRow{T}) where {T}
 
   if length(g.values) > 0 && g.values[1] < 0
     if !new_g
-      g = copy(g)
+      g = deepcopy(g)
+      new_g = false
     end
     for i=1:length(g.values)
       g.values[i] *= -1
@@ -105,8 +113,8 @@ function reduce(A::SMat{T}, g::SRow{T}) where {T}
   return g
 end
 
-@doc Markdown.doc"""
-    reduce(A::SMat{fmpz}, g::SRow{fmpz}, m::fmpz) -> SRow{fmpz}
+@doc raw"""
+    reduce(A::SMat{ZZRingElem}, g::SRow{ZZRingElem}, m::ZZRingElem) -> SRow{ZZRingElem}
 
 Given an upper triangular matrix $A$ over the integers, a sparse row $g$ and an
 integer $m$, this function reduces $g$ modulo $A$ and returns $g$
@@ -115,7 +123,7 @@ modulo $m$ with respect to the symmetric residue system.
 function reduce(A::SMat{T}, g::SRow{T}, m::T) where {T}
   @hassert :HNF 1  isupper_triangular(A)
   #assumes A is upper triangular, reduces g modulo A
-  g = copy(g)
+  g = deepcopy(g)
   mod_sym!(g, m)
   while length(g)>0
     s = g.pos[1]
@@ -171,14 +179,22 @@ function mod_sym!(a::T, b::T) where {T}
   return mod!(a, b)
 end
 
+function mod_sym!(a::ZZRingElem, b::ZZRingElem)
+  mod!(a, a, b)
+  if a>div(b, 2)
+    sub!(a, a, b)
+  end
+  return a
+end
+
 ################################################################################
 #
 #  Saturation
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    saturate(A::SMat{fmpz}) -> SMat{fmpz}
+@doc raw"""
+    saturate(A::SMat{ZZRingElem}) -> SMat{ZZRingElem}
 
 Computes the saturation of $A$, that is, a basis for $\mathbf{Q}\otimes M \meet
 \mathbf{Z}^n$, where $M$ is the row span of $A$ and $n$ the number of rows of
@@ -187,7 +203,7 @@ $A$.
 Equivalently, return $TA$ for an invertible rational matrix $T$, such that $TA$
 is integral and the elementary divisors of $TA$ are all trivial.
 """
-function saturate(A::SMat{fmpz})
+function saturate(A::SMat{ZZRingElem})
   Hti = transpose(hnf(transpose(A)))
   Hti = sub(Hti , 1:nrows(Hti), 1:nrows(Hti))
   Hti = transpose(Hti)
@@ -203,7 +219,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     find_row_starting_with(A::SMat, p::Int) -> Int
 
 Tries to find the index $i$ such that $A_{i,p} \neq 0$ and $A_{i, p-j} = 0$
@@ -227,7 +243,7 @@ function find_row_starting_with(A::SMat, p::Int)
   return stop
 end
 
-# If trafo is set to Val{true}, then additionaly an Array of transformations
+# If trafo is set to Val{true}, then additionally an Array of transformations
 # is returned.
 function reduce_up(A::SMat{T}, piv::Vector{Int},
                                   trafo::Type{Val{N}} = Val{false}) where {N, T}
@@ -255,11 +271,11 @@ function reduce_up(A::SMat{T}, piv::Vector{Int},
   with_transform ? (return trafos) : nothing
 end
 
-# If trafo is set to Val{true}, then additionaly an Array of transformations
+# If trafo is set to Val{true}, then additionally an Array of transformations
 # is returned.
-@doc Markdown.doc"""
-    reduce_full(A::SMat{fmpz}, g::SRow{fmpz},
-                          trafo = Val{false}) -> SRow{fmpz}, Vector{Int}
+@doc raw"""
+    reduce_full(A::SMat{ZZRingElem}, g::SRow{ZZRingElem},
+                          trafo = Val{false}) -> SRow{ZZRingElem}, Vector{Int}
 
 Reduces $g$ modulo $A$ and assumes that $A$ is upper triangular.
 
@@ -282,6 +298,8 @@ function reduce_full(A::SMat{T}, g::SRow{T}, trafo::Type{Val{N}} = Val{false}) w
   new_g = false
 
   piv = Int[]
+  tmpa = get_tmp(A)
+  tmpb = get_tmp(A)
   while length(g)>0
     s = g.pos[1]
     j = 1
@@ -295,20 +313,24 @@ function reduce_full(A::SMat{T}, g::SRow{T}, trafo::Type{Val{N}} = Val{false}) w
           push!(trafos, sparse_trafo_scale(nrows(A) + 1, base_ring(A)(inv(canonical_unit(g.values[1])))))
         end
         if !new_g
-          g = copy(g)
+          g = deepcopy(g)
+          new_g = true
         end
         for i=1:length(g.values)
           g.values[i] *= -1
         end
       end
 
+      _g = g
       if with_transform
         g, new_trafos  = reduce_right(A, g, 1, trafo)
         append!(trafos, new_trafos)
       else
         g = reduce_right(A, g)
       end
-      new_g = true
+      if _g !== g
+        new_g = true
+      end
 
       if A.r == A.c
         @hassert :HNF 1  length(g) == 0 || minimum(g) >= 0
@@ -318,19 +340,21 @@ function reduce_full(A::SMat{T}, g::SRow{T}, trafo::Type{Val{N}} = Val{false}) w
 
     end
     p = g.values[1]
-    if divides(p, A.rows[j].values[1])[1]
-      sca =  -divexact(p, A.rows[j].values[1])
-      g = Hecke.add_scaled_row(A[j], g, sca)
+    if !new_g
+      g = deepcopy(g)
       new_g = true
-      with_transform ? push!(trafos, sparse_trafo_add_scaled(j, nrows(A) + 1, sca)) : nothing
+    end
+    sca, r = divrem(p, A.rows[j].values[1])
+    if iszero(r)
+      Hecke.add_scaled_row!(A[j], g, -sca, tmpa)
+      with_transform ? push!(trafos, sparse_trafo_add_scaled(j, nrows(A) + 1, -sca)) : nothing
       @hassert :HNF 1  length(g)==0 || g.pos[1] > A[j].pos[1]
     else
       x, a, b = gcdx(A.rows[j].values[1], p)
       @hassert :HNF 1  x > 0
       c = -div(p, x)
       d = div(A.rows[j].values[1], x)
-      A[j], g = Hecke.transform_row(A[j], g, a, b, c, d)
-      new_g = true
+      Hecke.transform_row!(A[j], g, a, b, c, d, tmpa, tmpb)
       if with_transform
         push!(trafos, sparse_trafo_para_add_scaled(j, nrows(A) + 1, a, b, c, d))
       end
@@ -357,12 +381,17 @@ function reduce_full(A::SMat{T}, g::SRow{T}, trafo::Type{Val{N}} = Val{false}) w
   end
   if length(g.values) > 0 && g.values[1] < 0
     if !new_g
-      g = copy(g)
+      g = deepcopy(g)
+      new_g = false
     end
     for i=1:length(g.values)
       g.values[i] *= -1
     end
-    with_transform ? push!(trafos, sparse_trafo_scale!{fmpz}(nrows(A) + 1, fmpz(-1))) : nothing
+    with_transform ? push!(trafos, sparse_trafo_scale!{ZZRingElem}(nrows(A) + 1, ZZRingElem(-1))) : nothing
+  end
+  if !new_g
+    g = deepcopy(g)
+    new_g = false
   end
   if with_transform
     g, new_trafos = reduce_right(A, g, 1, trafo)
@@ -373,6 +402,8 @@ function reduce_full(A::SMat{T}, g::SRow{T}, trafo::Type{Val{N}} = Val{false}) w
   if A.r == A.c
     @hassert :HNF 1  length(g) == 0 || minimum(g) >= 0
   end
+  release_tmp(A, tmpa)
+  release_tmp(A, tmpb)
   with_transform ? (return g, piv, trafos) : (return g, piv)
 end
 
@@ -396,24 +427,24 @@ function reduce_right(A::SMat{T}, b::SRow{T},
     with_transform ? (return b, trafos) : return b
   end
   @hassert :HNF 1  A[p] != b
+  tmpa = get_tmp(A)
   while j <= length(b.pos)
     while p<nrows(A) && A[p].pos[1] < b.pos[j]
       p += 1
     end
     if A[p].pos[1] == b.pos[j]
       q, r = divrem(b.values[j], A[p].values[1])
-      if T == fmpz && r < 0
+      if T == ZZRingElem && r < 0
         q -= 1
         r += A[p].values[1]
         @hassert :HNF 1  r >= 0
       end
       if q != 0
         if new
-          b = Hecke.add_scaled_row(A[p], b, -q)
+          b = deepcopy(b)
           new = false
-        else
-          Hecke.add_scaled_row!(A[p], b, -q)
         end
+        Hecke.add_scaled_row!(A[p], b, -q, tmpa)
 
         with_transform ? push!(trafos, sparse_trafo_add_scaled(p, nrows(A) + 1, -q)) : nothing
         if r == 0
@@ -425,11 +456,12 @@ function reduce_right(A::SMat{T}, b::SRow{T},
     end
     j += 1
   end
+  release_tmp(A, tmpa)
   with_transform ? (return b, trafos) : return b
 end
 
-@doc Markdown.doc"""
-    hnf_extend!(A::SMat{fmpz}, b::SMat{fmpz}, offset::Int = 0) -> SMat{fmpz}
+@doc raw"""
+    hnf_extend!(A::SMat{ZZRingElem}, b::SMat{ZZRingElem}, offset::Int = 0) -> SMat{ZZRingElem}
 
 Given a matrix $A$ in HNF, extend this to get the HNF of the concatenation
 with $b$.
@@ -492,7 +524,8 @@ function hnf_extend!(A::SMat{T}, b::SMat{T}, trafo::Type{Val{N}} = Val{false}; t
       if nc % 10 == 0
         println("Now at $nc rows of $(nrows(b)), HNF so far $(nrows(A)) rows")
         println("Current density: $(density(A))")
-        println("and size of largest entry: $(nbits(maximum(abs, A))) bits $(sum(nbits, A))")
+        @vprint :HNF 2 "and size of largest entry: $(nbits(maximum(abs, A))) bits $(sum(nbits, A))\n"
+        @vtime :HNF 1 Base.GC.gc(false)
       end
     end
     nc += 1
@@ -510,19 +543,19 @@ function hnf_extend!(A::SMat{T}, b::SMat{T}, trafo::Type{Val{N}} = Val{false}; t
   with_transform ? (return A, trafos) : (return A)
 end
 
-function nbits(s::SRow{fmpz})
+function nbits(s::SRow{ZZRingElem})
   return sum(nbits, s.values)
 end
 
-@doc Markdown.doc"""
-    hnf_kannan_bachem(A::SMat{fmpz}) -> SMat{fmpz}
+@doc raw"""
+    hnf_kannan_bachem(A::SMat{ZZRingElem}) -> SMat{ZZRingElem}
 
 Compute the Hermite normal form of $A$ using the Kannan-Bachem algorithm.
 """
 function hnf_kannan_bachem(A::SMat{T}, trafo::Type{Val{N}} = Val{false}; truncate::Bool = false) where {N, T}
   @vprint :HNF 1 "Starting Kannan Bachem HNF on:\n"
   @vprint :HNF 1 A
-  @vprint :HNF 1 "with density $(density(A)); truncating $truncate"
+  @vprint :HNF 1 " with density $(density(A)); truncating $truncate\n"
 
   with_transform = (trafo == Val{true})
   with_transform ? trafos = SparseTrafoElem{T, dense_matrix_type(T)}[] : nothing
@@ -574,9 +607,14 @@ function hnf_kannan_bachem(A::SMat{T}, trafo::Type{Val{N}} = Val{false}; truncat
     end
     @v_do :HNF 1 begin
       if nc % 10 == 0
-        println("Now at $nc rows of $(nrows(A)), HNF so far $(nrows(B)) rows")
-        println("Current density: $(density(B))")
-        println("and size of largest entry: $(nbits(maximum(abs, B))) bits")
+        st = time_ns()
+        if (st - rt)*1e-9 > 10
+          println("Now at $nc rows of $(nrows(A)), HNF so far $(nrows(B)) rows")
+          println("Current density: $(density(B))")
+          println("and size of largest entry: $(nbits(maximum(abs, B))) bits")
+          println("used $((st-rt)*1e-9) sec. for last block, $((st-trt)*1e-9) sec. total")
+          rt = st
+        end
       end
     end
     nc += 1
@@ -589,21 +627,21 @@ function hnf_kannan_bachem(A::SMat{T}, trafo::Type{Val{N}} = Val{false}; truncat
   with_transform ? (return B, trafos) : (return B)
 end
 
-@doc Markdown.doc"""
-    hnf(A::SMat{fmpz}) -> SMat{fmpz}
+@doc raw"""
+    hnf(A::SMat{ZZRingElem}) -> SMat{ZZRingElem}
 
 Return the upper right Hermite normal form of $A$.
 """
-function hnf(A::SMat{fmpz}; truncate::Bool = false)
+function hnf(A::SMat{ZZRingElem}; truncate::Bool = false)
   return hnf_kannan_bachem(A, truncate = truncate)
 end
 
-@doc Markdown.doc"""
-    hnf!(A::SMat{fmpz})
+@doc raw"""
+    hnf!(A::SMat{ZZRingElem})
 
 Inplace transform of $A$ into upper right Hermite normal form.
 """
-function hnf!(A::SMat{fmpz}; truncate::Bool = false)
+function hnf!(A::SMat{ZZRingElem}; truncate::Bool = false)
   B = hnf(A, truncate = truncate)
   A.rows = B.rows
   A.nnz = B.nnz
@@ -613,7 +651,7 @@ end
 
 
 
-function reduce_right!(A::SMat{fmpz}, b::SRow{fmpz})
+function reduce_right!(A::SMat{ZZRingElem}, b::SRow{ZZRingElem})
   if length(b.pos) == 0
     return b
   end
@@ -622,19 +660,23 @@ function reduce_right!(A::SMat{fmpz}, b::SRow{fmpz})
   if p > nrows(A)
     return b
   end
+  tmpa = get_tmp(A)
+  rA = nrows(A)
   while j <= length(b.pos)
-    while p < nrows(A) && A[p].pos[1] < b.pos[j]
+    bpj = b.pos[j]
+    while p < nA && A[p].pos[1] < bpj
       p += 1
     end
-    if A[p].pos[1] == b.pos[j]
-      q, r = divrem(b.values[j], A[p].values[1])
+    Ap = A[p]
+    if Ap.pos[1] == bpj
+      q, r = divrem(b.values[j], Ap.values[1])
       if r < 0
         q -= 1
-        r += A[p].values[1]
+        r += Ap.values[1]
         @hassert :HNF 1 r >= 0
       end
       if q != 0
-        Hecke.add_scaled_row!(A[p], b, -q)
+        Hecke.add_scaled_row!(Ap, b, -q, tmpa)
         if r == 0
           j -= 1
         else
@@ -644,5 +686,6 @@ function reduce_right!(A::SMat{fmpz}, b::SRow{fmpz})
     end
     j += 1
   end
+  release_tmp(A, tmpa)
   return b
 end

@@ -8,13 +8,15 @@
 
   R1 = GF(23)
   R2, a2 = FlintFiniteField(23, 1, "a")
-  R3, a3 = FlintFiniteField(fmpz(23), 1, "a")
+  R3, a3 = FlintFiniteField(ZZRingElem(23), 1, "a")
   R4, a4 = FlintFiniteField(23, 2, "a")
+  R4_, a4_ = Hecke.Nemo._FiniteField(23, 2, "a")
 
   E1 = EllipticCurve(R1, [2, 3])
   E2 = EllipticCurve(R2, [2, 3])
   E3 = EllipticCurve(R3, [2, 3])
   E4 = EllipticCurve(R4, [2, 3])
+  E4_ = EllipticCurve(R4_, [2, 3])
   E5 = EllipticCurve(R4, [1, 2, 3, 0, 6])
 
   @testset "Random point construction" begin
@@ -22,9 +24,10 @@
     @inferred rand(E2)
     @inferred rand(E3)
     @inferred rand(E4)
+    @inferred rand(E4_)
     @inferred rand(E5)
 
-    T = EllCrvPt{gfp_elem}
+    T = EllCrvPt{elem_type(R1)}
     @test rand(rng, E1) isa T
     @test rand(rng, E1, 3) isa Vector{T}
 
@@ -48,6 +51,7 @@
     @test 24 in @inferred order_via_bsgs(E2)
     @test 24 in @inferred order_via_bsgs(E3)
     @test 576 in @inferred order_via_bsgs(E4)
+    @test 576 in @inferred order_via_bsgs(E4_)
   end
 
   @testset "Hasse interval" begin
@@ -59,6 +63,9 @@
     @test l[1] <= 24 && 24 <= l[2]
     l = @inferred hasse_interval(E4)
     @test l[1] <= 576 && 576 <= l[2]
+    l = @inferred hasse_interval(E4_)
+    @test l[1] <= 576 && 576 <= l[2]
+
   end
 
   @testset "Trace of Frobenius" begin
@@ -70,7 +77,7 @@
    @test trace_of_frobenius(E, 2) == 32
    @test trace_of_frobenius(E, 3) == 128
    
-   R,x = PolynomialRing(GF(59))
+   R,x = polynomial_ring(GF(59))
    E = EllipticCurve(x^3+54*x+31,x)
    @test trace_of_frobenius(E) == 15
   end
@@ -80,6 +87,7 @@
     @test 24 == @inferred order_via_schoof(E2)
     @test 24 == @inferred order_via_schoof(E3)
     @test 576 == @inferred order_via_schoof(E4)
+    @test 576 == @inferred order_via_schoof(E4_)
   end
 
   @testset "Point counting" begin
@@ -98,6 +106,7 @@
     @test 24 == @inferred order(E2)
     @test 24 == @inferred order(E3)
     @test 576 == @inferred order(E4)
+    @test 576 == @inferred order(E4_)
   end
   
   @testset "Supersingular" begin 

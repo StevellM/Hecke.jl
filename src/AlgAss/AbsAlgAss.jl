@@ -1,4 +1,4 @@
-export subalgebra, decompose, radical, is_central, is_simple, central_primitive_idempotents
+export subalgebra, decompose, radical, is_central, is_simple, central_primitive_idempotents, is_semisimple, is_etale
 
 _base_ring(A::AbsAlgAss) = base_ring(A)
 
@@ -10,17 +10,19 @@ _base_ring(A::AbsAlgAss) = base_ring(A)
 
 morphism_type(::Type{T}, ::Type{S}) where {R, T <: AbsAlgAss{R}, S <: AbsAlgAss{R}} = AbsAlgAssMor{T, S, Generic.MatSpaceElem{R}}
 
-morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{fmpq}, S <: AbsAlgAss{fmpq}} = AbsAlgAssMor{T, S, fmpq_mat}
+morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{QQFieldElem}, S <: AbsAlgAss{QQFieldElem}} = AbsAlgAssMor{T, S, QQMatrix}
 
-morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{fq}, S <: AbsAlgAss{fq}} = AbsAlgAssMor{T, S, fq_mat}
+morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{FqPolyRepFieldElem}, S <: AbsAlgAss{FqPolyRepFieldElem}} = AbsAlgAssMor{T, S, FqPolyRepMatrix}
 
-morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{fq_nmod}, S <: AbsAlgAss{fq_nmod}} = AbsAlgAssMor{T, S, fq_nmod_mat}
+morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{fqPolyRepFieldElem}, S <: AbsAlgAss{fqPolyRepFieldElem}} = AbsAlgAssMor{T, S, fqPolyRepMatrix}
 
-morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{nmod}, S <: AbsAlgAss{nmod}} = AbsAlgAssMor{T, S, nmod_mat}
+morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{zzModRingElem}, S <: AbsAlgAss{zzModRingElem}} = AbsAlgAssMor{T, S, zzModMatrix}
 
-morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{gfp_elem}, S <: AbsAlgAss{gfp_elem}} = AbsAlgAssMor{T, S, gfp_mat}
+morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{fpFieldElem}, S <: AbsAlgAss{fpFieldElem}} = AbsAlgAssMor{T, S, fpMatrix}
 
-morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{gfp_fmpz_elem}, S <: AbsAlgAss{gfp_fmpz_elem}} = AbsAlgAssMor{T, S, gfp_fmpz_mat}
+morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{FpFieldElem}, S <: AbsAlgAss{FpFieldElem}} = AbsAlgAssMor{T, S, FpMatrix}
+
+morphism_type(::Type{T}, ::Type{S}) where {T <: AbsAlgAss{FqFieldElem}, S <: AbsAlgAss{FqFieldElem}} = AbsAlgAssMor{T, S, FqMatrix}
 
 morphism_type(A::Type{T}) where {T <: AbsAlgAss} = morphism_type(A, A)
 
@@ -30,7 +32,7 @@ morphism_type(A::Type{T}) where {T <: AbsAlgAss} = morphism_type(A, A)
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     basis(A::AbsAlgAss) -> Vector{AbsAlgAssElem}
 
 Returns the basis of $A$.
@@ -114,7 +116,7 @@ end
 ################################################################################
 
 # This is the generic fallback which constructs an associative algebra
-@doc Markdown.doc"""
+@doc raw"""
     subalgebra(A::AbsAlgAss, e::AbsAlgAssElem, idempotent::Bool = false,
                action::Symbol = :left)
       -> AlgAss, AbsAlgAssMor
@@ -133,7 +135,7 @@ function subalgebra(A::AbsAlgAss{T}, e::AbsAlgAssElem{T}, idempotent::Bool = fal
   return C, mD
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     subalgebra(A::AbsAlgAss, basis::Vector{AbsAlgAssElem})
       -> AlgAss, AbsAlgAssMor
 
@@ -178,7 +180,7 @@ function kernel_of_frobenius(A::AbsAlgAss)
   return [ A(v) for v in V ]
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     decompose(A::AbsAlgAss) -> Array{Tuple{AlgAss, AbsAlgAssMor}}
 
 Given a semisimple algebra $A$ over a field, this function returns a
@@ -459,7 +461,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     components(::Type{Field}, A::AbsAlgAss)
       -> Vector{Tuple{Field, Morphism}}
 
@@ -471,7 +473,7 @@ function components(::Type{Field}, A::AbsAlgAss)
   return as_number_fields(A)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     component(::Type{Field}, A::AbsAlgAss, i::Int)
       -> Vector{Tuple{Field, Morphism}}
 
@@ -483,8 +485,8 @@ function component(::Type{Field}, A::AbsAlgAss, i::Int)
   return nf[i]
 end
 
-@doc Markdown.doc"""
-    as_number_fields(A::AbsAlgAss{fmpq})
+@doc raw"""
+    as_number_fields(A::AbsAlgAss{QQFieldElem})
       -> Vector{Tuple{AnticNumberField, AbsAlgAssToNfAbsMor}}
 
 Given a commutative algebra $A$ over $\mathbb Q$, this function returns a
@@ -507,7 +509,7 @@ function __as_number_fields(A::AbsAlgAss{T}; use_maximal_order::Bool = true) whe
   return result
 end
 
-_ext_type(::Type{fmpq}) = AnticNumberField
+_ext_type(::Type{QQFieldElem}) = AnticNumberField
 
 _ext_type(::Type{nf_elem}) = NfRel{nf_elem}
 
@@ -523,7 +525,7 @@ function _as_number_fields(A::AbsAlgAss{T}; use_maximal_order::Bool = true) wher
     end
   end
 
-  if fields_not_cached && T === fmpq && use_maximal_order
+  if fields_not_cached && T === QQFieldElem && use_maximal_order
     # Compute a LLL reduced basis of the maximal order of A to find "small"
     # polynomials for the number fields.
     OA = maximal_order(A)
@@ -623,8 +625,8 @@ function rand(A::AbsAlgAss{T}, rng::UnitRange{Int}) where T
   return A(c)
 end
 
-function rand(A::AlgAss{fmpq}, rng::UnitRange{Int} = -20:20)
-  c = [fmpq(rand(FlintZZ, rng)) for i = 1:dim(A)]
+function rand(A::AlgAss{QQFieldElem}, rng::UnitRange{Int} = -20:20)
+  c = [QQFieldElem(rand(FlintZZ, rng)) for i = 1:dim(A)]
   return A(c)
 end
 
@@ -720,7 +722,7 @@ function _add_row_to_rref!(M::MatElem{T}, v::Vector{T}, pivot_rows::Vector{Int},
   return true
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     gens(A::AbsAlgAss, return_full_basis::Typel{Val{T}} = Val{false};
          thorough_search::Bool = false) where T
       -> Vector{AbsAlgAssElem}
@@ -867,7 +869,7 @@ function primitive_element(A::AbsAlgAss)
   return a
 end
 
-function primitive_element(A::AbsAlgAss{fmpq})
+function primitive_element(A::AbsAlgAss{QQFieldElem})
   if isdefined(A, :maps_to_numberfields)
     return primitive_element_via_number_fields(A)
   end
@@ -881,17 +883,17 @@ end
 #  return nothing
 #end
 
-# If T == fmpq, we try to find a small primitive element by
+# If T == QQFieldElem, we try to find a small primitive element by
 # going "via number fields". There a procedure using LLL
 # is implemented to find primitive elements with small minimal
 # polynomial. Note that this could be improved by calling into
 # simplify for number fields. But it is a bit tricky.
-function _primitive_element(A::AbsAlgAss{fmpq})
+function _primitive_element(A::AbsAlgAss{QQFieldElem})
   a = primitive_element_via_number_fields(A)
   return a, minpoly(a)
 end
 
-function __primitive_element(A::S) where {T <: FinFieldElem, S <: AbsAlgAss{T}} #<: Union{nmod, fq, fq_nmod, Generic.Res{fmpz}, fmpq, Generic.ResF{fmpz}, gfp_elem}
+function __primitive_element(A::S) where {T <: FinFieldElem, S <: AbsAlgAss{T}} #<: Union{zzModRingElem, FqPolyRepFieldElem, fqPolyRepFieldElem, Generic.ResidueRingElem{ZZRingElem}, QQFieldElem, Generic.ResidueFieldElem{ZZRingElem}, fpFieldElem}
   d = dim(A)
   a = rand(A)
   f = minpoly(a)
@@ -902,7 +904,7 @@ function __primitive_element(A::S) where {T <: FinFieldElem, S <: AbsAlgAss{T}} 
   return a, f
 end
 
-function primitive_element_via_number_fields(A::AbsAlgAss{fmpq})
+function primitive_element_via_number_fields(A::AbsAlgAss{QQFieldElem})
   fields_and_maps = as_number_fields(A)
   a = A()
   for (K, AtoK) in fields_and_maps
@@ -935,18 +937,18 @@ function _as_field(A::AbsAlgAss{T}) where T
   return a, mina, f
 end
 
-function _as_field_with_isomorphism(A::AbsAlgAss{fmpq}) #<: Union{fmpq, gfp_elem, Generic.ResF{fmpz}, fq_nmod, fq} }
+function _as_field_with_isomorphism(A::AbsAlgAss{QQFieldElem}) #<: Union{QQFieldElem, fpFieldElem, Generic.ResidueFieldElem{ZZRingElem}, fqPolyRepFieldElem, FqPolyRepFieldElem} }
   return _as_field_with_isomorphism(A, _primitive_element(A)...)
 end
 
-function _as_field_with_isomorphism(A::AbsAlgAss{S}) where { S } #<: Union{fmpq, gfp_elem, Generic.ResF{fmpz}, fq_nmod, fq} }
+function _as_field_with_isomorphism(A::AbsAlgAss{S}) where { S } #<: Union{QQFieldElem, fpFieldElem, Generic.ResidueFieldElem{ZZRingElem}, fqPolyRepFieldElem, FqPolyRepFieldElem} }
   return _as_field_with_isomorphism(A, __primitive_element(A)...)
 end
 
 # Assuming a is a primitive element of A and mina its minimal polynomial, this
 # functions constructs the field base_ring(A)/mina and the isomorphism between
 # A and this field.
-function _as_field_with_isomorphism(A::AbsAlgAss{S}, a::AbsAlgAssElem{S}, mina::T) where {S, T} # where { S <: Union{fmpq, gfp_elem, Generic.ResF{fmpz}, fq_nmod, fq}, T <: Union{fmpq_poly, gfp_poly, gfp_fmpz_poly, fq_nmod_poly, fq_poly} }
+function _as_field_with_isomorphism(A::AbsAlgAss{S}, a::AbsAlgAssElem{S}, mina::T) where {S, T} # where { S <: Union{QQFieldElem, fpFieldElem, Generic.ResidueFieldElem{ZZRingElem}, fqPolyRepFieldElem, FqPolyRepFieldElem}, T <: Union{QQPolyRingElem, fpPolyRingElem, FpPolyRingElem, fqPolyRepPolyRingElem, FqPolyRepPolyRingElem} }
   s = one(A)
   M = zero_matrix(base_ring(A), dim(A), dim(A))
   elem_to_mat_row!(M, 1, s)
@@ -958,23 +960,28 @@ function _as_field_with_isomorphism(A::AbsAlgAss{S}, a::AbsAlgAssElem{S}, mina::
   return __as_field_with_isomorphism(A, mina, M)
 end
 
-function __as_field_with_isomorphism(A::AbsAlgAss{S}, f, M) where {S <: Union{fmpq, nf_elem}}
+function __as_field_with_isomorphism(A::AbsAlgAss{S}, f, M) where {S <: Union{QQFieldElem, nf_elem}}
   K = number_field(f, cached = false)[1]
   return K, AbsAlgAssToNfAbsMor(A, K, inv(M), M)
 end
 
-function __as_field_with_isomorphism(A::AbsAlgAss{gfp_elem}, f::gfp_poly, M::gfp_mat)
-  Fq = FqNmodFiniteField(f, Symbol("a"), false)
+function __as_field_with_isomorphism(A::AbsAlgAss{fpFieldElem}, f::fpPolyRingElem, M::fpMatrix)
+  Fq = fqPolyRepField(f, Symbol("a"), false)
   return Fq, AbsAlgAssToFqMor(A, Fq, inv(M), M, parent(f))
 end
 
-function __as_field_with_isomorphism(A, f::gfp_fmpz_poly, M)
-#function __as_field_with_isomorphism(A::AbsAlgAss{Generic.ResF{fmpz}}, f::gfp_fmpz_poly, M::Generic.MatSpaceElem{Generic.ResF{fmpz}})
-  Fq = FqFiniteField(f, Symbol("a"), false)
+function __as_field_with_isomorphism(A::AbsAlgAss{FpFieldElem}, f::FpPolyRingElem, M)
+  Fq = FqPolyRepField(f, Symbol("a"), false)
   return Fq, AbsAlgAssToFqMor(A, Fq, inv(M), M, parent(f))
 end
 
-function __as_field_with_isomorphism(A::AbsAlgAss{S}, f::T, M::U) where { S <: Union{ fq_nmod, fq }, T <: Union{ fq_nmod_poly, fq_poly }, U <: Union{ fq_nmod_mat, fq_mat } }
+function __as_field_with_isomorphism(A::AbsAlgAss{FqFieldElem}, f::FqPolyRingElem, M::FqMatrix)
+  Fr, = Nemo._residue_field(f)
+  RtoFr = FqPolyRingToFqMor{typeof(parent(f)), typeof(Fr), typeof(f), Any}(Fr, f)
+  return Fr, AbsAlgAssToFqMor(A, Fr, inv(M), M, parent(f), RtoFr)
+end
+
+function __as_field_with_isomorphism(A::AbsAlgAss{S}, f::T, M::U) where { S <: Union{fqPolyRepFieldElem, FqPolyRepFieldElem }, T <: Union{ fqPolyRepPolyRingElem, FqPolyRepPolyRingElem }, U <: Union{ fqPolyRepMatrix, FqPolyRepMatrix } }
   Fr, RtoFr = field_extension(f)
   return Fr, AbsAlgAssToFqMor(A, Fr, inv(M), M, parent(f), RtoFr)
 end
@@ -985,7 +992,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     regular_matrix_algebra(A::Union{ AlgAss, AlgGrp }) -> AlgMat, AbsAlgAssMor
 
 Returns the matrix algebra $B$ generated by the right representation matrices
@@ -1026,11 +1033,11 @@ function CrossedProductAlgebra(K::AnticNumberField, G::Vector{T}, cocval::Matrix
   element of basis of the order and so on...
   =#
 
-  M=Array{fmpq,3}(undef, n*m, n*m, n*m)
+  M=Array{QQFieldElem,3}(undef, n*m, n*m, n*m)
   for i=1:n*m
     for j=1:n*m
       for s=1:n*m
-        M[i,j,s]=fmpq(0)
+        M[i,j,s]=QQFieldElem(0)
       end
     end
   end
@@ -1070,11 +1077,11 @@ function CrossedProductAlgebra(O::NfOrd, G::Vector{T}, cocval::Matrix{nf_elem}) 
   element of basis of the order and so on...
   =#
 
-  M=Array{fmpq,3}(undef, n*m, n*m, n*m)
+  M=Array{QQFieldElem,3}(undef, n*m, n*m, n*m)
   for i=1:n*m
     for j=1:n*m
       for s=1:n*m
-        M[i,j,s]=fmpq(0)
+        M[i,j,s]=QQFieldElem(0)
       end
     end
   end
@@ -1103,8 +1110,8 @@ function CrossedProductAlgebra(O::NfOrd, G::Vector{T}, cocval::Matrix{nf_elem}) 
   end
   j1 = find_identity(G, *)
   j = find_elem(G, j1)
-  O1 = fmpq[0 for i=1:n*m]
-  O1[j] = fmpq(1)
+  O1 = QQFieldElem[0 for i=1:n*m]
+  O1[j] = QQFieldElem(1)
   A = AlgAss(FlintQQ, M, O1)
   A.is_simple = 1
   return A
@@ -1130,7 +1137,7 @@ function _assure_trace_basis(A::AbsAlgAss{T}) where T
   return nothing
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     trace_matrix(A::AbsAlgAss) -> MatElem
 
 Returns a matrix $M$ over the base ring of $A$ such that
@@ -1161,10 +1168,10 @@ end
 ################################################################################
 
 # This is the generic fallback which constructs an associative algebra
-@doc Markdown.doc"""
-    restrict_scalars(A::AbsAlgAss{nf_elem}, Q::FlintRationalField)
-    restrict_scalars(A::AbsAlgAss{fq_nmod}, Fp::GaloisField)
-    restrict_scalars(A::AbsAlgAss{fq}, Fp::Generic.ResField{fmpz})
+@doc raw"""
+    restrict_scalars(A::AbsAlgAss{nf_elem}, Q::QQField)
+    restrict_scalars(A::AbsAlgAss{fqPolyRepFieldElem}, Fp::fpField)
+    restrict_scalars(A::AbsAlgAss{FqPolyRepFieldElem}, Fp::Generic.ResidueField{ZZRingElem})
       -> AlgAss, Function, Function
 
 Given an algebra $A$ over a field $L$ and the prime field $K$ of $L$, this
@@ -1172,7 +1179,7 @@ function returns the restriction $B$ of $A$ to $K$ and maps from $A$ to $B$
 and from $B$ to $A$.
 """
 function restrict_scalars(A::AbsAlgAss{T}, K::Field) where {T}
-  #K == base_ring(A) && throw(error("Not yet implemented"))
+  #K == base_ring(A) && error("Not yet implemented")
   B, BtoA = AlgAss(A)::Tuple{AlgAss{T}, morphism_type(AlgAss{T}, typeof(A))}
   C, BtoC, CtoB = restrict_scalars(B, K)
 
@@ -1195,21 +1202,21 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
      radical(A::AbsAlgAss) -> AbsAlgAssIdl
 
 Returns the Jacobson-Radical of $A$.
 """
-function radical(A::AbsAlgAss{T}) where { T } #<: Union{ gfp_elem, Generic.ResF{fmpz}, fq_nmod, fq, fmpq, nf_elem } }
+function radical(A::AbsAlgAss{T}) where { T } #<: Union{ fpFieldElem, Generic.ResidueFieldElem{ZZRingElem}, fqPolyRepFieldElem, FqPolyRepFieldElem, QQFieldElem, nf_elem } }
   return ideal_from_gens(A, _radical(A), :twosided)
 end
 
 # Section 2.3.2 in W. Eberly: Computations for Algebras and Group Representations
 # TODO: Fix the type
-function _radical(A::AbsAlgAss{T}) where { T } #<: Union{ gfp_elem, Generic.ResF{fmpz} } }
+function _radical_prime_field(A::AbsAlgAss{T}) where { T } #<: Union{ fpFieldElem, Generic.ResidueFieldElem{ZZRingElem} } }
   F = base_ring(A)
   p = characteristic(F)
-  k = flog(fmpz(dim(A)), p)
+  k = flog(ZZRingElem(dim(A)), p)
 
   MF = trace_matrix(A)
   d, B = nullspace(MF)
@@ -1222,7 +1229,7 @@ function _radical(A::AbsAlgAss{T}) where { T } #<: Union{ gfp_elem, Generic.ResF
   # on the subspace generated by C
   # Hard to believe, but this is linear!!!!
   MZ = zero_matrix(FlintZZ, dim(A), dim(A))
-  pl = fmpz(1)
+  pl = ZZRingElem(1)
   a = A()
   for l = 1:k
     pl = p*pl
@@ -1234,7 +1241,11 @@ function _radical(A::AbsAlgAss{T}) where { T } #<: Union{ gfp_elem, Generic.ResF
         MF = representation_matrix(a)
         for m = 1:nrows(MF)
           for n = 1:ncols(MF)
-            MZ[m, n] = lift(MF[m, n])
+            if T <: FqFieldElem
+              MZ[m, n] = lift(ZZ, MF[m, n])
+            else
+              MZ[m, n] = lift(MF[m, n])
+            end
           end
         end
         t = tr(MZ^Int(pl))
@@ -1252,26 +1263,43 @@ function _radical(A::AbsAlgAss{T}) where { T } #<: Union{ gfp_elem, Generic.ResF
   return elem_type(A)[ elem_from_mat_row(A, C, i) for i = 1:nrows(C) ]
 end
 
-function _radical(A::AbsAlgAss{T}) where { T <: Union{ fq_nmod, fq } }
+function _radical(A::AbsAlgAss{T}) where { T <: Union{ fpFieldElem, FpFieldElem } }
+  return _radical_prime_field(A)
+end
+
+function _radical(A::AbsAlgAss{T}) where { T <: Union{ fqPolyRepFieldElem, FqPolyRepFieldElem, FqFieldElem } }
   F = base_ring(A)
 
   p = characteristic(F)
-  if T <: fq_nmod
-    Fp = GF(Int(p))
+  if T <: fqPolyRepFieldElem
+    Fp = Native.GF(Int(p))
+  elseif T === FqFieldElem
+    Fp = Nemo._GF(p)
   else
-    Fp = GF(p)
+    Fp = Native.GF(p)
   end
+
   A2, A2toA = restrict_scalars(A, Fp)
-  n = degree(F)
+  if T === FqFieldElem
+    n = absolute_degree(F)
+  else
+    n = degree(F)
+  end
 
   if n == 1
-    J = _radical(A2)
+    J = _radical_prime_field(A2)
     return elem_type(A)[ A2toA(b) for b in J ]
   end
 
-  k = flog(fmpz(dim(A)), p)
-  Qx, x = PolynomialRing(FlintQQ, "x", cached = false)
-  f = Qx(push!(fmpq[ -fmpq(coeff(gen(F)^n, i)) for i = 0:(n - 1) ], fmpq(1)))
+  if T === FqFieldElem
+    absgenF =  Nemo._gen(F)
+  else
+    absgenF = gen(F)
+  end
+
+  k = flog(ZZRingElem(dim(A)), p)
+  Qx, x = polynomial_ring(FlintQQ, "x", cached = false)
+  f = Qx(push!(QQFieldElem[ -QQFieldElem(T === FqFieldElem ? Nemo._coeff(absgenF^n, i) : coeff(absgenF^n, i)) for i = 0:(n - 1) ], QQFieldElem(1)))
   K, a = number_field(f, "a")
 
   MF = trace_matrix(A2)
@@ -1281,7 +1309,7 @@ function _radical(A::AbsAlgAss{T}) where { T <: Union{ fq_nmod, fq } }
   end
 
   C = transpose(B)
-  pl = fmpz(1)
+  pl = ZZRingElem(1)
   MK = zero_matrix(K, dim(A), dim(A))
   MQx = zero_matrix(Qx, dim(A), dim(A))
   a = A()
@@ -1312,7 +1340,7 @@ function _radical(A::AbsAlgAss{T}) where { T <: Union{ fq_nmod, fq } }
   return elem_type(A)[ A2toA(elem_from_mat_row(A2, C, i)) for i = 1:nrows(C) ]
 end
 
-function _lift_fq_mat!(M1::MatElem{T}, M2::MatElem{nf_elem}, M3::MatElem{fmpq_poly}) where { T <: Union{ fq_nmod, fq } }
+function _lift_fq_mat!(M1::MatElem{T}, M2::MatElem{nf_elem}, M3::MatElem{QQPolyRingElem}) where { T <: Union{ fqPolyRepFieldElem, FqPolyRepFieldElem, FqFieldElem } }
   @assert ncols(M1) == ncols(M2) && ncols(M1) == ncols(M3)
   @assert nrows(M1) == nrows(M2) && nrows(M1) == nrows(M3)
   n = degree(base_ring(M1))
@@ -1322,15 +1350,19 @@ function _lift_fq_mat!(M1::MatElem{T}, M2::MatElem{nf_elem}, M3::MatElem{fmpq_po
     for j = 1:ncols(M1)
       # Sadly, there is no setcoeff! for nf_elem...
       for k = 0:(n - 1)
-        M3[i, j] = setcoeff!(M3[i, j], k, fmpq(coeff(M1[i, j], k)))
+        if T === FqFieldElem
+          M3[i, j] = setcoeff!(M3[i, j], k, QQFieldElem(Nemo._coeff(M1[i, j], k)))
+        else
+          M3[i, j] = setcoeff!(M3[i, j], k, QQFieldElem(coeff(M1[i, j], k)))
+        end
       end
-      ccall((:nf_elem_set_fmpq_poly, libantic), Nothing, (Ref{nf_elem}, Ref{fmpq_poly}, Ref{AnticNumberField}), M2[i, j], M3[i, j], K)
+      ccall((:nf_elem_set_fmpq_poly, libantic), Nothing, (Ref{nf_elem}, Ref{QQPolyRingElem}, Ref{AnticNumberField}), M2[i, j], M3[i, j], K)
     end
   end
   return M2
 end
 
-function _radical(A::AbsAlgAss{T}) where { T <: Union{ fmpq, NumFieldElem } }
+function _radical(A::AbsAlgAss{T}) where { T <: Union{ QQFieldElem, NumFieldElem } }
   M = trace_matrix(A)
   n, N = nullspace(M)
   b = Vector{elem_type(A)}(undef, n)
@@ -1351,15 +1383,13 @@ end
 #
 ################################################################################
 
-# TODO: Fix this once we have a new Nemo version
+function is_semisimple(A::AbsAlgAss)
+  b = _issemisimple(A)
+  @assert b == 1 || b == 2
+  return b == 1
+end
 
-# TODO: Make sure this always returns 1 or 2. So far we only have _radical for
-# algebras over Fp, Fq, QQ, and number fields
-#function _issemisimple(A::AbsAlgAss)
-#  return A.issemisimple
-#end
-
-function _issemisimple(A::AbsAlgAss{T}) where { T } #<: Union{ gfp_elem, Generic.ResF{fmpz}, fq, fq_nmod, fmpq, nf_elem } }
+function _issemisimple(A::AbsAlgAss{T}) where { T } #<: Union{ fpFieldElem, Generic.ResidueFieldElem{ZZRingElem}, FqPolyRepFieldElem, fqPolyRepFieldElem, QQFieldElem, nf_elem } }
   if A.issemisimple == 0
     if isempty(_radical(A))
       A.issemisimple = 1
@@ -1396,19 +1426,29 @@ end
 
 ################################################################################
 #
+#  Etale
+#
+################################################################################
+
+function is_etale(A::AbsAlgAss)
+  return is_commutative(A) && is_semisimple(A)
+end
+
+################################################################################
+#
 #  Trace signature
 #
 ################################################################################
 
 function trace_signature(A::AbsAlgAss{nf_elem}, P::InfPlc)
   M = trred_matrix(basis(A))
-  Ky, y = PolynomialRing(base_ring(A), "y", cached = false)
+  Ky, y = polynomial_ring(base_ring(A), "y", cached = false)
   f = charpoly(Ky, M)
-  npos = n_positive_roots(f, P; multiplicities = true)
+  npos = n_positive_roots(f, _embedding(P); multiplicities = true)
   return (npos, degree(f) - npos)
 end
 
-function trace_signature(A::AbsAlgAss{fmpq})
+function trace_signature(A::AbsAlgAss{QQFieldElem})
   O = get_attribute(A, :any_order)
   if O === nothing
     M = trred_matrix(basis(A))
@@ -1417,7 +1457,7 @@ function trace_signature(A::AbsAlgAss{fmpq})
     M = change_base_ring(QQ, _M)
   end
 
-  Ky, y = PolynomialRing(base_ring(A), "y", cached = false)
+  Ky, y = polynomial_ring(base_ring(A), "y", cached = false)
   f = charpoly(Ky, M)
   npos = n_positive_roots(f, multiplicities = true)
   return npos, degree(f) - npos
@@ -1484,7 +1524,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     product_of_components_with_projection(A::AbsAlgAss, a::Vector{Int})
                                                                -> AbsAlgAss, Map
 
@@ -1495,7 +1535,7 @@ the ordering returned by `decompose(A)`.
 function product_of_components_with_projection(A::AbsAlgAss, a::Vector{Int})
   dec = decompose(A)
   l = length(dec)
-  @req all(i -> 1 <= i <= l, a) "Indicies ($a) must satisfy >= 1 and <= $l"
+  @req all(i -> 1 <= i <= l, a) "Indices ($a) must satisfy >= 1 and <= $l"
   algs = [dec[i][1] for i in a]
   injs = [dec[i][2] for i in a]
   r = length(a)
@@ -1510,7 +1550,7 @@ function product_of_components_with_projection(A::AbsAlgAss, a::Vector{Int})
 end
 #function product_of_components(A::AbsAlgAss)
 
-@doc Markdown.doc"""
+@doc raw"""
     product_of_components_with_projection(A::AbsAlgAss, a::Vector{Int})
                                                                    -> AbsAlgAss
 
@@ -1522,7 +1562,7 @@ function product_of_components(A::AbsAlgAss, a::Vector{Int})
   return B
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     maximal_eichler_quotient_with_projection(A::AbsAlgAss) -> AbsAlgAss, Map
 """
 function maximal_eichler_quotient_with_projection(A::AbsAlgAss)
@@ -1543,7 +1583,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     central_primitive_idempotents(A::AbsAlgAss) -> Vector
 
 Returns the central primitive idempotents of `A`.
@@ -1555,6 +1595,7 @@ julia> QG = QQ[G];
 
 julia> length(central_primitive_idempotents(QG))
 2
+```
 """
 function central_primitive_idempotents(A::AbsAlgAss)
   dec = decompose(A)
@@ -1565,5 +1606,3 @@ function central_primitive_idempotents(A::AbsAlgAss)
   end
   return res
 end
-
-

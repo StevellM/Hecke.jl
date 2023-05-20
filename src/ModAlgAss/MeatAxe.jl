@@ -95,14 +95,14 @@ function reduce_mod_rref!(M::T, w::T) where {T}
   return nothing
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     closure(C::T, G::Vector{T}) where T <: MatElem
 
 Given a matrix $C$ representing a subspace of $K^n$ and a list of matrices $G$ representing endomorphisms of $K^n$,
 the function returns a matrix representing the closure of the subspace under the action, i.e. the smallest
 subspace of $K^n$ invariant under the endomorphisms.
 """
-function closure(C::T, G::Vector{T}) where {T}
+function closure(C::T, G::Vector{T}) where {T <: MatElem}
   if nrows(C) != 1
     rref!(C)
   else
@@ -334,7 +334,7 @@ function is_isomorphic(M::ModAlgAss{S, T, V}, N::ModAlgAss{S, T, V}) where {S, T
   end
 
   K = coefficient_ring(M)
-  Kx, x = PolynomialRing(K, "x", cached=false)
+  Kx, x = polynomial_ring(K, "x", cached=false)
 
   if length(M.action_of_gens) == 1
     f = charpoly(Kx, M.action_of_gens[1])
@@ -393,7 +393,7 @@ end
 #
 #################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     meataxe(M::ModAlgAss) -> Bool, MatElem
 
 Given a module $M$, defined via its generators, return `true` if the module is
@@ -404,7 +404,7 @@ function meataxe(M::ModAlgAss{S, T, V}) where {S, T, V}
 # TODO: What about length(G)>1 && isinfinte(K)
 
   K = coefficient_ring(M)::S
-  Kx, x = PolynomialRing(K, "x", cached = false)
+  Kx, x = polynomial_ring(K, "x", cached = false)
   n = dim(M)
   @assert n > 0
   if n == 1
@@ -499,7 +499,7 @@ _random_coefficient_for_meataxe(R::Ring) = R(rand(Int))
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     composition_series(M::ModAlgAss) -> Vector{MatElem}
 
 Given a Fq[G]-module $M$, it returns a composition series for $M$, i.e. a
@@ -600,7 +600,7 @@ function _composition_factors_with_multiplicity_cyclic(M::ModAlgAss{S, T, V}; di
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     composition_factors_with_multiplicity(M::ModAlgAss)
 
 Given a Fq[G]-module $M$, it returns, up to isomorphism, the composition factors of $M$ with their multiplicity,
@@ -810,7 +810,7 @@ end
 function _all_combinations(M::MatElem{T}) where T
   K = base_ring(M)
   els = collect(x for x in K)
-  @assert fits(Int, fmpz(length(els))^nrows(M))
+  @assert fits(Int, ZZRingElem(length(els))^nrows(M))
   res = Vector{typeof(M)}(undef, length(els)^nrows(M))
   ind = 1
   m = zero_matrix(K, 1, nrows(M))
@@ -959,7 +959,7 @@ function _minimal_submodules(M::ModAlgAss{S, T, V}, dim::Int=dim(M)+1, lf = Tupl
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     minimal_submodules(M::ModAlgAss)
 
 Given a Fq[G]-module $M$, it returns all the minimal submodules of $M$.
@@ -969,7 +969,7 @@ function minimal_submodules(M::ModAlgAss{S, T, V}, dim::Int=dim(M)+1, lf = Tuple
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     maximal_submodules(M::ModAlgAss)
 
 Given a $G$-module $M$, it returns all the maximal submodules of $M$.
@@ -986,7 +986,7 @@ function maximal_submodules(M::ModAlgAss{S, T, V}, index::Int=dim(M), lf = Tuple
 
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     submodules(M::ModAlgAss)
 
 Given a $G$-module $M$, it returns all the submodules of $M$.
@@ -1053,7 +1053,7 @@ function submodules(M::ModAlgAss{S, T, V}) where {S, T, V}
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
     submodules(M::ModAlgAss, index::Int)
 
 Given a $G$-module $M$, it returns all the submodules of $M$ of index $q$^index, where $q$ is the order of the field.
@@ -1175,13 +1175,13 @@ function _submodules_primary(M::ModAlgAss{S, T, V}, dimension::Int, composition_
 end
 
 
-function powermod(f::Zmodn_poly, e::fmpz, g::Zmodn_poly)
+function powermod(f::Zmodn_poly, e::ZZRingElem, g::Zmodn_poly)
   if fits(Int, e)
     return powermod(f, Int(e), g)
   else
     _e = BigInt()
     z = parent(f)()
-    ccall((:fmpz_get_mpz, libflint), Nothing, (Ref{BigInt}, Ref{fmpz}), _e, e)
+    ccall((:fmpz_get_mpz, libflint), Nothing, (Ref{BigInt}, Ref{ZZRingElem}), _e, e)
     ccall((:nmod_poly_powmod_mpz_binexp, libflint), Nothing,
           (Ref{Zmodn_poly}, Ref{Zmodn_poly}, Ref{BigInt}, Ref{Zmodn_poly}),
            z, f, e, g)

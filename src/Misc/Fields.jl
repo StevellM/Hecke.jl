@@ -1,4 +1,4 @@
-function _field_as_vector_space(K::NumField, Q::FlintRationalField)
+function _field_as_vector_space(K::NumField, Q::QQField)
   BLoverK = absolute_basis(K)
   d = absolute_degree(K)
   m = identity_matrix(Q, d)
@@ -12,16 +12,24 @@ function _field_as_vector_space(K::NfRel{nf_elem}, Q::AnticNumberField)
   return BLoverK, m
 end
 
-function _field_as_vector_space(K::FqNmodFiniteField, Q::GaloisField)
+function _field_as_vector_space(K::fqPolyRepField, Q::fpField)
   d = degree(K)
   BLoverK = powers(gen(K), d - 1)
   m = identity_matrix(Q, d)
   return BLoverK, m
 end
 
-function _field_as_vector_space(K::FqFiniteField, Q::GaloisFmpzField)
+function _field_as_vector_space(K::FqPolyRepField, Q::FpField)
   d = degree(K)
   BLoverK = powers(gen(K), d - 1)
+  m = identity_matrix(Q, d)
+  return BLoverK, m
+end
+
+function _field_as_vector_space(K::FqField, Q::FqField)
+  @assert absolute_degree(Q) == 1
+  d = absolute_degree(K)
+  BLoverK = powers(Nemo._gen(K), d - 1)
   m = identity_matrix(Q, d)
   return BLoverK, m
 end
@@ -101,7 +109,7 @@ mutable struct FldToVecMor{R, S, T, U, V}
 
 end
 
-function image(f::FldToVecMor{T, FlintRationalField}, a::NumFieldElem) where {T <: NumField}
+function image(f::FldToVecMor{T, QQField}, a::NumFieldElem) where {T <: NumField}
   @assert parent(a) == f.L
   L = parent(a)
   d = absolute_degree(L)
@@ -150,7 +158,7 @@ function image(f::FldToVecMor{T}, a) where {T <: FinField}
   L = parent(a)
   d = degree(L)
   K = f.K
-  z = matrix(K, 1, d, elem_type(K)[K(coeff(a, i)) for i in 0:(d - 1)])
+  z = matrix(K, 1, d, elem_type(K)[K(T === FqField ? Nemo._coeff(a, i) : coeff(a, i)) for i in 0:(d - 1)])
   if f.isone
     v = z
   else
@@ -162,5 +170,10 @@ end
 function preimage(f::FldToVecMor, v::Vector)
   @assert parent(v[1]) == f.K
   return dot(f.B, map(f.f, v))::elem_type(f.L)
+end
+
+function preimage(f::FldToVecMor{FqField}, v::Vector)
+  @assert parent(v[1]) == f.K
+  return dot(f.B, (f.L).(map(f.f, v)))::elem_type(f.L)
 end
 

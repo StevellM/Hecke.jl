@@ -64,7 +64,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
       pseudo_basis(a::NfRelOrdIdl{T, S}) -> Vector{Tuple{NumFieldElem{T}, S}}
       pseudo_basis(a::NfRelOrdFracIdl{T, S}) -> Vector{Tuple{NumFieldElem{T}, S}}
 
@@ -79,7 +79,7 @@ function pseudo_basis(a::Union{NfRelOrdIdl, NfRelOrdFracIdl}; copy::Bool = true)
   end
 end
 
-@doc Markdown.doc"""
+@doc raw"""
       basis_pmatrix(a::NfRelOrdIdl) -> PMat
       basis_pmatrix(a::NfRelOrdFracIdl) -> PMat
 
@@ -105,7 +105,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
       basis_matrix(a::NfRelOrdIdl{T, S}) -> Generic.Mat{T}
       basis_matrix(a::NfRelOrdFracIdl{T, S}) -> Generic.Mat{T}
 
@@ -120,7 +120,7 @@ function basis_matrix(a::Union{NfRelOrdIdl, NfRelOrdFracIdl}; copy::Bool = true)
   end
 end
 
-@doc Markdown.doc"""
+@doc raw"""
       basis_mat_inv(a::NfRelOrdIdl{T, S}) -> Generic.Mat{T}
       basis_mat_inv(a::NfRelOrdFracIdl{T, S}) -> Generic.Mat{T}
 
@@ -172,7 +172,7 @@ function defines_ideal(O::NfRelOrd{T, S}, M::PMat{T, S}) where {T, S}
   return _spans_subset_of_pseudohnf(M, I, :lowerleft)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     ideal(O::NfRelOrd, M::PMat, check::Bool = true, M_in_hnf::Bool = false) -> NfRelOrdIdl
 
 Creates the ideal of $\mathcal O$ with basis pseudo-matrix $M$. If `check` is set,
@@ -187,7 +187,7 @@ function ideal(O::NfRelOrd{T, S, U}, M::PMat{T, S}, check::Bool = true, M_in_hnf
   return NfRelOrdIdl{T, S, U}(O, M)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     ideal(O::NfRelOrd, M::Generic.Mat, check::Bool = true) -> NfRelOrdIdl
 
 Creates the ideal of $\mathcal O$ with basis matrix $M$. If `check` is set,
@@ -198,7 +198,7 @@ function ideal(O::NfRelOrd{T, S}, M::Generic.Mat{T}, check::Bool = true) where {
   return ideal(O, PseudoMatrix(M, coeffs), check)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     ideal(O::NfRelOrd{T, S}, x::NfRelElem{T}, y::NfRelElem{T}, a::S, b::S, check::Bool = true) -> NfRelOrdIdl{T, S}
 
 Creates the ideal $x\cdot a + y\cdot b$ of $\mathcal O$. If `check` is set,
@@ -227,8 +227,8 @@ function ideal(O::NfRelOrd{T, S, U}, x::U, y::U, a::S, b::S, check::Bool = true)
 end
 
 function ideal(O::NfRelOrd{T, S}, x::NumFieldElem{T}, y::NumFieldElem{T}, a::NfOrdIdl, b::NfOrdIdl, check::Bool = true) where {T, S}
-  aa = fractional_ideal(order(a), a, fmpz(1))
-  bb = fractional_ideal(order(b), b, fmpz(1))
+  aa = fractional_ideal(order(a), a, ZZRingElem(1))
+  bb = fractional_ideal(order(b), b, ZZRingElem(1))
   return ideal(O, x, y, aa, bb, check)
 end
 
@@ -238,7 +238,7 @@ function ideal(O::NfRelOrd{T, S}, x::NumFieldElem{T}, y::NumFieldElem{T}, a::NfR
   return ideal(O, x, y, aa, bb, check)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     ideal(O::NfRelOrd{T, S}, x::NfRelOrdElem{T}) -> NfRelOrdIdl{T, S}
     *(O::NfRelOrd{T, S}, x::NfRelOrdElem{T}) -> NfRelOrdIdl{T, S}
     *(x::NfRelOrdElem{T}, O::NfRelOrd{T, S}) -> NfRelOrdIdl{T, S}
@@ -262,15 +262,15 @@ function ideal(O::NfRelOrd{T, S, U}, x::NfRelOrdElem{T, U}) where {T, S, U}
   return NfRelOrdIdl{T, S, U}(O, PM)
 end
 
-function ideal(O::NfRelOrd, x::Union{ Int, fmpz, NfOrdElem})
+function ideal(O::NfRelOrd, x::Union{ Int, ZZRingElem, NfOrdElem})
   return ideal(O, O(x))
 end
 
-*(O::NfRelOrd, x::T) where { T <: Union{ Int, fmpz, NfOrdElem, NfRelOrdElem } } = ideal(O, x)
+*(O::NfRelOrd, x::T) where { T <: Union{ Int, ZZRingElem, NfOrdElem, NfRelOrdElem } } = ideal(O, x)
 
-*(x::T, O::NfRelOrd) where { T <: Union{ Int, fmpz, NfOrdElem, NfRelOrdElem } } = ideal(O, x)
+*(x::T, O::NfRelOrd) where { T <: Union{ Int, ZZRingElem, NfOrdElem, NfRelOrdElem } } = ideal(O, x)
 
-@doc Markdown.doc"""
+@doc raw"""
     ideal(O::NfRelOrd{T, S}, a::S, check::Bool = true) -> NfRelOrdIdl{T, S}
 
 Creates the ideal $a \cdot \mathcal O$ of $\mathcal O$. If `check` is set,
@@ -295,7 +295,7 @@ function ideal(O::NfRelOrd{T, S, U}, a::S, check::Bool = true) where {T, S, U}
 end
 
 function ideal(O::NfRelOrd{nf_elem, NfOrdFracIdl}, a::NfOrdIdl, check::Bool = true)
-  aa = fractional_ideal(order(a), a, fmpz(1))
+  aa = fractional_ideal(order(a), a, ZZRingElem(1))
   return ideal(O, aa, check)
 end
 
@@ -346,7 +346,7 @@ function ^(A::NfRelOrdIdl, a::Int)
   end
 
   if a < 0
-    throw(error("Exponent must be positive"))
+    error("Exponent must be positive")
   end
 
   if a == 2
@@ -475,7 +475,7 @@ function assure_has_norm(a::NfRelOrdIdl{T, S}) where {T, S}
   return nothing
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     norm(a::NfRelOrdIdl) -> NfOrdIdl
 
 Returns the norm of $a$.
@@ -497,7 +497,7 @@ function norm(a::NfRelOrdIdl, k::NumField)
   return n::elem_type(k)
 end
 
-function norm(a::NfRelOrdIdl, k::FlintRationalField)
+function norm(a::NfRelOrdIdl, k::QQField)
   return norm(norm(a), k)
 end
 
@@ -577,7 +577,7 @@ end
 
 *(x::T, a::NfRelOrdIdl{T, S, U}) where {T <: NumFieldElem, S, U <: NumFieldElem} = a*x
 
-function *(a::Union{NfRelOrdIdl, NfRelOrdFracIdl}, x::Union{ Int, fmpz })
+function *(a::Union{NfRelOrdIdl, NfRelOrdFracIdl}, x::Union{ Int, ZZRingElem })
   if iszero(x)
     return ideal(order(a), 0)
   end
@@ -585,7 +585,7 @@ function *(a::Union{NfRelOrdIdl, NfRelOrdFracIdl}, x::Union{ Int, fmpz })
   return typeof(a)(order(a), x*basis_pmatrix(a))
 end
 
-*(x::Union{ Int, fmpz}, a::Union{NfRelOrdIdl, NfRelOrdFracIdl}) = a*x
+*(x::Union{ Int, ZZRingElem}, a::Union{NfRelOrdIdl, NfRelOrdFracIdl}) = a*x
 
 ################################################################################
 #
@@ -660,7 +660,7 @@ end
 //(a::NfRelOrdIdl{T, S}, b::NfRelOrdIdl{T, S}) where {T, S} = divexact(a, b)
 
 
-//(a::NfRelOrdIdl{T,S}, z::fmpz) where {T, S} = a//(z*order(a))
+//(a::NfRelOrdIdl{T,S}, z::ZZRingElem) where {T, S} = a//(z*order(a))
 
 //(a::NfRelOrdIdl{T,S}, n::Integer) where {T, S} = a//(ZZ(n)*order(a))
 
@@ -771,7 +771,7 @@ end
 
 #computes a^e mod the integer p. Assumes that the base field of parent(a)
 # has a nice defining equation
-function _powermod(a::S, e::T, p::fmpz) where {S <: Union{NfRelElem, NfRelNSElem}, T <: IntegerUnion}
+function _powermod(a::S, e::T, p::ZZRingElem) where {S <: Union{NfRelElem, NfRelNSElem}, T <: IntegerUnion}
   @assert e >= 0
   K = parent(a)
   if iszero(e)
@@ -796,7 +796,7 @@ end
 
 # Algorithm V.8. and VI.8. in "Berechnung relativer Ganzheitsbasen mit dem
 # Round-2-Algorithmus" by C. Friedrichs.
-@doc Markdown.doc"""
+@doc raw"""
       pradical(O::NfRelOrd, P::NfOrdIdl) -> NfRelOrdIdl
 
 Given a prime ideal $P$, this function returns the $P$-radical
@@ -826,7 +826,7 @@ function pradical(O::NfRelOrd, P::Union{NfOrdIdl, NfRelOrdIdl})
     elem_to_mat_row!(basis_mat_int, i, t)
   end
   if is_absolute
-    Oint = typeof(O)(L, PseudoMatrix(basis_mat_int, [ fractional_ideal(OK, pbint[i][2], fmpz(1)) for i = 1:d ]))
+    Oint = typeof(O)(L, PseudoMatrix(basis_mat_int, [ fractional_ideal(OK, pbint[i][2], ZZRingElem(1)) for i = 1:d ]))
   else
     Oint = typeof(O)(L, PseudoMatrix(basis_mat_int, [ fractional_ideal(OK, basis_pmatrix(pbint[i][2], copy = false)) for i = 1:d ]))
   end
@@ -838,7 +838,7 @@ function pradical(O::NfRelOrd, P::Union{NfOrdIdl, NfRelOrdIdl})
   for i = 1:d
     elts_with_val[i] = element_with_valuation(pbint[i][2], [ p for (p, e) in prime_ideals ])
   end
-  F, mF = ResidueField(OK, P)
+  F, mF = residue_field(OK, P)
   mmF = extend(mF, K)
   A = zero_matrix(F, d, d)
 
@@ -850,7 +850,7 @@ function pradical(O::NfRelOrd, P::Union{NfOrdIdl, NfRelOrdIdl})
   end
   if p <= d
     q = order(F)
-    k = clog(fmpz(degree(Oint)), q)
+    k = clog(ZZRingElem(degree(Oint)), q)
     for i = 1:d
       t = Oint((L(K(elts_with_val[i]))*pbint[i][1])^(q^k))
       ar = coordinates(t, copy = false)
@@ -899,7 +899,7 @@ function pradical(O::NfRelOrd{S, T, U}, P::NfOrdIdl) where {S, T, U <: Union{NfR
     push!(pbint, (t, numerator(pb[i][2])))
     elem_to_mat_row!(basis_mat_int, i, t)
   end
-  Oint = typeof(O)(L, PseudoMatrix(basis_mat_int, [ fractional_ideal(OK, pbint[i][2], fmpz(1)) for i = 1:d ]))
+  Oint = typeof(O)(L, PseudoMatrix(basis_mat_int, [ fractional_ideal(OK, pbint[i][2], ZZRingElem(1)) for i = 1:d ]))
 
   pOK = ideal(OK, OK(minimum(P)))
   prime_ideals = factor(pOK)
@@ -909,7 +909,7 @@ function pradical(O::NfRelOrd{S, T, U}, P::NfOrdIdl) where {S, T, U <: Union{NfR
   for i = 1:d
     elts_with_val[i] = element_with_valuation(pbint[i][2], kprimes).elem_in_nf
   end
-  F, mF = ResidueField(OK, P)
+  F, mF = residue_field(OK, P)
   mmF = extend(mF, K)
   A = zero_matrix(F, d, d)
 
@@ -918,7 +918,7 @@ function pradical(O::NfRelOrd{S, T, U}, P::NfOrdIdl) where {S, T, U <: Union{NfR
   if p <= d
     @vprint :NfRelOrd 4 "Frobenius method \n"
     q = order(F)
-    k = clog(fmpz(degree(Oint)), q)
+    k = clog(ZZRingElem(degree(Oint)), q)
     for i = 1:d
       if is_defining_polynomial_nice(K)
         t = Oint(_powermod(elts_with_val[i]*pbint[i][1], q^k, p))
@@ -1105,10 +1105,10 @@ function prime_dec_nonindex(O::NfRelOrd, p::Union{NfOrdIdl, NfRelOrdIdl}; comput
   f = L.pol
 
   Kx = parent(f)
-  Fp, mF = ResidueField(OK, p)
+  Fp, mF = residue_field(OK, p)
   mmF = extend(mF, K)
   immF = pseudo_inv(mmF)
-  Fy, y = PolynomialRing(Fp,"y", cached=false)
+  Fy, y = polynomial_ring(Fp,"y", cached=false)
   fmodp = map_coefficients(mmF, f, parent = Fy)
   fac = factor(fmodp)
   result = Vector{Tuple{ideal_type(O), Int}}()
@@ -1188,7 +1188,7 @@ function prime_dec_index(O::NfRelOrd, p::Union{NfOrdIdl, NfRelOrdIdl})
 end
 
 # Returns all prime ideals in O containing the prime number p
-function prime_ideals_over(O::NfRelOrd, p::Union{ Int, fmpz })
+function prime_ideals_over(O::NfRelOrd, p::Union{ Int, ZZRingElem })
   pdec = prime_ideals_over(base_ring(O), p)
 
   primes = Vector{ideal_type(O)}()
@@ -1397,7 +1397,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
       minimum(A::NfRelOrdIdl) -> NfOrdIdl
       minimum(A::NfRelOrdIdl) -> NfRelOrdIdl
 
@@ -1432,10 +1432,10 @@ end
 #
 ################################################################################
 
-function ResidueField(O::NfRelOrd{T, S, U}, P::NfRelOrdIdl{T, S, U}) where {T, S, U}
+function residue_field(O::NfRelOrd{T, S, U}, P::NfRelOrdIdl{T, S, U}) where {T, S, U}
   @assert order(P) == O
   @assert P.is_prime == 1
-  mF = NfRelOrdToFqMor{T, S, U}(O, P)
+  mF = NfRelOrdToFqMor(O, P)
   return codomain(mF), mF
 end
 
@@ -1513,10 +1513,10 @@ end
 #
 ################################################################################
 #=
-@doc Markdown.doc"""
+@doc raw"""
     in(x::NfRelOrdElem, y::NfRelOrdIdl)
     in(x::NumFieldElem, y::NfRelOrdIdl)
-    in(x::fmpz, y::NfRelOrdIdl)
+    in(x::ZZRingElem, y::NfRelOrdIdl)
 
 Returns whether $x$ is contained in $y$.
 """
@@ -1540,7 +1540,7 @@ function in(x::NumFieldElem, y::NfRelOrdIdl)
   return in(order(y)(x),y)
 end
 
-in(x::fmpz, y::NfRelOrdIdl) = in(order(y)(x),y)
+in(x::ZZRingElem, y::NfRelOrdIdl) = in(order(y)(x),y)
 
 ################################################################################
 #
@@ -1593,7 +1593,7 @@ function anti_uniformizer(P::NfRelOrdIdl{T, S}) where {T, S}
   M = representation_matrix(u)
   M = N*M*NN
 
-  F, mF = ResidueField(order(p), p)
+  F, mF = residue_field(order(p), p)
   mmF = extend(mF, nf(order(p)))
   immF = pseudo_inv(mmF)
   Mp = zero_matrix(F, nrows(M), ncols(M))
@@ -1678,7 +1678,7 @@ function approximate(v::Vector{Int}, primes::Vector{ <: NfRelOrdIdl })
   O = order(primes[1])
 
   # Make the set primes complete: add all prime ideals lying over the same prime numbers
-  prime_numbers = Set{fmpz}()
+  prime_numbers = Set{ZZRingElem}()
   for p in primes
     push!(prime_numbers, prime_number(p))
   end
@@ -1702,13 +1702,13 @@ function approximate(v::Vector{Int}, primes::Vector{ <: NfRelOrdIdl })
   a_pos, a_neg = _approximate_simple(v2, primes2)
 
   # Take care of the additional negative valuations coming from a_neg^(-1)
-  c = fmpq(absolute_norm(a_neg))
+  c = QQFieldElem(absolute_norm(a_neg))
   for i = 1:length(primes)
     if v[i] >= 0
       continue
     end
 
-    c *= fmpq(absolute_norm(primes[i]))^v[i]
+    c *= QQFieldElem(absolute_norm(primes[i]))^v[i]
   end
 
   return divexact(c*elem_in_nf(a_pos), elem_in_nf(a_neg))
@@ -1720,7 +1720,7 @@ end
 #
 ################################################################################
 
-function prime_ideals_up_to(O::NfRelOrd, n::Union{Int, fmpz})
+function prime_ideals_up_to(O::NfRelOrd, n::Union{Int, ZZRingElem})
   p = 2
   z = ideal_type(O)[]
   while p <= n

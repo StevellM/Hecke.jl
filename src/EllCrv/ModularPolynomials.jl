@@ -4,11 +4,11 @@ const default_class_mod_pol_db = joinpath(artifact"ClassicalModularPolynomialsDB
 
 const _classical_modular_polynomial_cache = Dict{Any, Any}()
 
-@doc Markdown.doc"""
+@doc raw"""
     classical_modular_polynomial([R::MPolyRing,] n::Int) -> Poly
 
 Returns the classical modular polynomial of level $n as an element of
-$\mathbf{Z}[x, y]$. If an optional bivariate polynomial $R$ is specificed,
+$\mathbf{Z}[x, y]$. If an optional bivariate polynomial $R$ is specified,
 the polynomial will be evaluated at the variables of $R$.
 
 Modular polynomials are available up to level `59`.
@@ -25,12 +25,12 @@ function classical_modular_polynomial(R::MPolyRing, n::Int)
     open(joinpath(default_class_mod_pol_db, "$n")) do io
       b, exps = _parse(Vector{Vector{Int}}, io)
       @assert Char(b) == ','
-      b, coeffs = _parse(Vector{fmpz}, io)
+      b, coeffs = _parse(Vector{ZZRingElem}, io)
       C = MPolyBuildCtx(R)
       for i in 1:length(exps)
-        push_term!(C, coeffs[i], exps[i])
+        push_term!(C, base_ring(R)(coeffs[i]), exps[i])
         if exps[i][1] != exps[i][2]
-          push_term!(C, coeffs[i], reverse(exps[i]))
+          push_term!(C, base_ring(R)(coeffs[i]), reverse(exps[i]))
         end
       end
       return finish(C)
@@ -42,11 +42,11 @@ const default_atkin_mod_pol_db = joinpath(artifact"AtkinModularPolynomialsDB", "
 
 const _atkin_modular_polynomial_cache = Dict{Any, Any}()
 
-@doc Markdown.doc"""
+@doc raw"""
     atkin_modular_polynomial([R::MPolyRing,] n::Int) -> Poly
 
 Returns the Atkin modular polynomial of prime level $n as an element of
-$\mathbf{Z}[x, y]$. If an optional bivariate polynomial $R$ is specificed,
+$\mathbf{Z}[x, y]$. If an optional bivariate polynomial $R$ is specified,
 the polynomial will be evaluated at the variables of $R$.
 
 Atkin modular polynomials are available up to level `400`.
@@ -67,10 +67,10 @@ function atkin_modular_polynomial(R::MPolyRing, n::Int)
       @assert Char(b) == ','
       b, exps = _parse(Vector{Vector{Int}}, io)
       @assert Char(b) == ','
-      b, coeffs = _parse(Vector{fmpz}, io)
+      b, coeffs = _parse(Vector{ZZRingElem}, io)
       C = MPolyBuildCtx(R)
       for i in 1:length(exps)
-        push_term!(C, coeffs[i], exps[i])
+        push_term!(C, base_ring(R)(coeffs[i]), exps[i])
       end
       return finish(C)
     end

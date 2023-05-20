@@ -6,13 +6,13 @@ export locally_free_class_group, locally_free_class_group_with_disc_log
 #
 ################################################################################
 
-add_verbose_scope(:LocallyFreeClassGroup)
+add_verbosity_scope(:LocallyFreeClassGroup)
 
 # Bley, Boltje "Computation of Locally Free Class Groups"
 # If the left and right conductor of O in a maximal order coincide (which is the
 # case if O is the integral group ring of a group algebra), the computation can
 # be speeded up by setting cond = :left.
-@doc Markdown.doc"""
+@doc raw"""
     locally_free_class_group(O::AlgAssAbsOrd) -> GrpAbFinGen
 
 Given an order $O$ in a semisimple algebra over $\mathbb Q$, this function
@@ -53,9 +53,9 @@ function locally_free_class_group(O::AlgAssAbsOrd, cond::Symbol = :center, retur
 
   # Find the infinite places we need for the ray class group of FinZ
   @vprint :LocallyFreeClassGroup "Find the splitting infinite places\n"
-  inf_plc = Vector{Vector{InfPlc}}(undef, length(fields_and_maps))
+  inf_plc = Vector{Vector{InfPlc{AnticNumberField, NumFieldEmbNfAbs}}}(undef, length(fields_and_maps))
   for i = 1:length(fields_and_maps)
-    inf_plc[i] = Vector{InfPlc}()
+    inf_plc[i] = Vector{InfPlc{AnticNumberField, NumFieldEmbNfAbs}}()
   end
   for i = 1:length(Adec)
     B, BtoA = Adec[i]
@@ -113,7 +113,7 @@ end
 # This only works if O is an integral group ring!
 # (Because the theory only works in this case, not because of laziness.)
 # See Bley, Wilson: "Computations in relative algebraic K-groups".
-@doc Markdown.doc"""
+@doc raw"""
     locally_free_class_group_with_disc_log(O::AlgAssAbsOrd; check::Bool = true)
       -> GrpAbFinGen, DiscLogLocallyFreeClassGroup
 
@@ -125,7 +125,7 @@ These tests can be disabled by setting `check = false`.
 """
 function locally_free_class_group_with_disc_log(O::AlgAssAbsOrd; check::Bool = true)
   if check
-    if !(algebra(O) isa AlgGrp) || basis_matrix(O, copy = false) != FakeFmpqMat(identity_matrix(FlintZZ, dim(algebra(O))), fmpz(1))
+    if !(algebra(O) isa AlgGrp) || basis_matrix(O, copy = false) != FakeFmpqMat(identity_matrix(FlintZZ, dim(algebra(O))), ZZRingElem(1))
       error("Only implemented for group rings")
     end
   end
@@ -200,26 +200,13 @@ function K1_order_mod_conductor(O::AlgAssAbsOrd, OA::AlgAssAbsOrd, F::AlgAssAbsO
   @assert Hecke._test_ideal_sidedness(FinZ, OinZ, :right)
   @assert isone(denominator(basis_matrix(FinZ) * basis_mat_inv(OinZ)))
 
-  facFinZ = factor(FinZ)
-  prime_ideals = Dict{ideal_type(OinZ), Vector{ideal_type(OZ)}}()
-  for (p, e) in facFinZ
-    q = contract(p, OinZ)
-    if haskey(prime_ideals, q)
-      push!(prime_ideals[q], p)
-    else
-      prime_ideals[q] = [ p ]
-    end
-  end
-
   primary_ideals = Vector{Tuple{ideal_type(O), ideal_type(O)}}()
-  for p in keys(prime_ideals)
-    primes_above = prime_ideals[p]
-    q = primes_above[1]^facFinZ[primes_above[1]]
-    for i = 2:length(primes_above)
-      q = q*primes_above[i]^facFinZ[primes_above[i]]
-    end
+  prim = primary_decomposition(FinZ, OinZ)
+
+  for (q, p) in prim
+    # q is p-primary
     pO = _as_ideal_of_larger_algebra(ZtoA, p, O)
-    qO = _as_ideal_of_larger_algebra(ZtoA, contract(q, OinZ), O)
+    qO = _as_ideal_of_larger_algebra(ZtoA, q, O)
     # The qO are primary ideals such that F = \prod (qO + F)
     push!(primary_ideals, (pO, qO))
   end
@@ -256,7 +243,7 @@ function K1_order_mod_conductor(O::AlgAssAbsOrd, OA::AlgAssAbsOrd, F::AlgAssAbsO
   return k1
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     K1(A::AlgAss{<:FinFieldElem}) -> Vector{AbsAlgAssElem}
 
 Given an algebra over a finite field, this function returns generators for $K_1(A)$.
@@ -418,7 +405,7 @@ mutable struct DiscLogLocallyFreeClassGroup{S, T} <: Map{S, T, HeckeMap, DiscLog
   mR::MapRayClassGroupAlg
   FinZ::AlgAssAbsOrdIdl # Conductor of the order in the maximal order contracted to the centre
   FinKs::Vector{NfOrdIdl}
-  primes_in_fields::Vector{Vector{Tuple{NfOrdIdl, fmpz, NfOrdIdl}}}
+  primes_in_fields::Vector{Vector{Tuple{NfOrdIdl, ZZRingElem, NfOrdIdl}}}
   fields_and_maps
   ZtoA
 
@@ -443,11 +430,11 @@ mutable struct DiscLogLocallyFreeClassGroup{S, T} <: Map{S, T, HeckeMap, DiscLog
       FinKs[i] = _as_ideal_of_number_field(FinZ, ZtoK)
     end
     m.FinKs = FinKs
-    primes_in_fields = Vector{Vector{Tuple{nf_idl_type, fmpz, nf_idl_type}}}(undef, length(fields_and_maps))
+    primes_in_fields = Vector{Vector{Tuple{nf_idl_type, ZZRingElem, nf_idl_type}}}(undef, length(fields_and_maps))
     for i = 1:length(fields_and_maps)
       FinK = FinKs[i]
       facFinK = factor(FinK)
-      primes_in_fields[i] = Vector{Tuple{nf_idl_type, fmpz, nf_idl_type}}()
+      primes_in_fields[i] = Vector{Tuple{nf_idl_type, ZZRingElem, nf_idl_type}}()
       for (p, e) in facFinK
         push!(primes_in_fields[i], (p, e, p^e))
       end
@@ -469,11 +456,11 @@ function image(m::DiscLogLocallyFreeClassGroup, I::AlgAssAbsOrdIdl)
   RtoC = m.RtoC
   mR =  m.mR
   FinZ = m.FinZ
-  fields_and_maps = m.fields_and_maps::Vector{Tuple{AnticNumberField, AbsAlgAssToNfAbsMor{AlgAss{fmpq}, elem_type(AlgAss{fmpq}), AnticNumberField, fmpq_mat}}}
-  ZtoA = m.ZtoA::morphism_type(AlgAss{fmpq}, typeof(A))
+  fields_and_maps = m.fields_and_maps::Vector{Tuple{AnticNumberField, AbsAlgAssToNfAbsMor{AlgAss{QQFieldElem}, elem_type(AlgAss{QQFieldElem}), AnticNumberField, QQMatrix}}}
+  ZtoA = m.ZtoA::morphism_type(AlgAss{QQFieldElem}, typeof(A))
   _T = _ext_type(elem_type(base_ring(A)))
   nf_idl_type = ideal_type(order_type(_T))
-  primes_in_fields = m.primes_in_fields::Vector{Vector{Tuple{nf_idl_type, fmpz, nf_idl_type}}}
+  primes_in_fields = m.primes_in_fields::Vector{Vector{Tuple{nf_idl_type, ZZRingElem, nf_idl_type}}}
   FinKs = m.FinKs
 
   @assert order(I) === order(domain(m))
@@ -531,13 +518,13 @@ function image(m::DiscLogLocallyFreeClassGroup, I::AlgAssAbsOrdIdl)
 
       # Compute the ideal (prod_{P | p} P^v_P(gammaK))*(beta*OK)
       bases = Vector{ideal_type(OK)}()
-      exps = Vector{fmpz}()
+      exps = Vector{ZZRingElem}()
       # The discrete logarithm of the ray class group does not like fractional ideals...
       beta_den = denominator(beta, OK)
       push!(bases, OK(beta_den*beta)*OK)
-      push!(exps, fmpz(1))
+      push!(exps, ZZRingElem(1))
       push!(bases, OK(beta_den)*OK)
-      push!(exps, fmpz(-1))
+      push!(exps, ZZRingElem(-1))
       pdec = prime_decomposition(OK, p)
       for (q, e) in pdec
         v = valuation(gammaK, q)

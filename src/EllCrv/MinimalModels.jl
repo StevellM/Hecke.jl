@@ -44,20 +44,20 @@ export minimal_model, has_global_minimal_model, semi_global_minimal_model, minim
 ################################################################################
 
 # algorithm of Laska-Kraus-Connell
-@doc Markdown.doc"""
-    laska_kraus_connell(E::EllCrv{fmpz}) -> Array{Nemo.fmpz}
+@doc raw"""
+    laska_kraus_connell(E::EllCrv{ZZRingElem}) -> Array{Nemo.ZZRingElem}
 
 Given an elliptic curve over $\mathbf Q$ with integral model, this returns an
 isomorphic elliptic curve over $\mathbf Q$ with minimal discriminant.
 """
-function laska_kraus_connell(E::EllCrv{fmpq})
+function laska_kraus_connell(E::EllCrv{QQFieldElem})
   a1, a2, a3, a4, a6 = map(numerator,(a_invars(E)))
 
   b2, b4, b6, b8, c4, c6 = get_b_c_integral(E)
 
   delta = divexact(c4^3 - c6^2, 1728)
 
-  u = fmpz(1)
+  u = ZZRingElem(1)
   g = gcd(c6^2, delta)
 
   fac = factor(g)
@@ -111,7 +111,7 @@ function laska_kraus_connell(E::EllCrv{fmpq})
   na6 = divexact(b6 - na3, 4)
 
 
-  return EllipticCurve([na1, na2, na3, na4, na6])::EllCrv{fmpq}
+  return EllipticCurve([na1, na2, na3, na4, na6])::EllCrv{QQFieldElem}
 end
 
 ################################################################################
@@ -120,20 +120,20 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    minimal_model(E::EllCrv{fmpq}, p::Int) -> EllCrv{fmpq},
-      EllCrvIso{fmpq}, EllCrvIso{fmpq}
+@doc raw"""
+    minimal_model(E::EllCrv{QQFieldElem}, p::Int) -> EllCrv{QQFieldElem},
+      EllCrvIso{QQFieldElem}, EllCrvIso{QQFieldElem}
 
 Returns a model of $E$, which is minimal at $p$. It is assumed that $p$
 is prime.
 """
-function minimal_model(E::EllCrv{fmpq}, p::Int)
+function minimal_model(E::EllCrv{QQFieldElem}, p::Int)
   Ep = tates_algorithm_local(E, p)[1]
   phi = isomorphism(E, Ep)
   return Ep, phi, inv(phi)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     minimal_model(E::EllCrv{nf_elem}, p::NfOrdIdl) -> EllCrv{nf_elem},
       EllCrvIso{nf_elem}, EllCrvIso{nf_elem}
 
@@ -148,14 +148,14 @@ function minimal_model(E::EllCrv{nf_elem}, p::NfOrdIdl)
 end
 
 
-@doc Markdown.doc"""
-    tidy_model(E::EllCrv{fmpq}) -> EllCrv{fmpq}
+@doc raw"""
+    tidy_model(E::EllCrv{QQFieldElem}) -> EllCrv{QQFieldElem}
 
 Given an elliptic curve with minimal model, this functions returns an
 isomorphic curve with reduced minimal model, that is, $a_1, a_3 \in \{0, 1\}$
 and $a_2 \in \{-1,0,1\}$.
 """
-function tidy_model(E::EllCrv{fmpq})
+function tidy_model(E::EllCrv{QQFieldElem})
 
   a1, a2, a3, a4, a6 = map(numerator,(a_invars(E)))
 
@@ -190,18 +190,18 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
-    minimal_model(E::EllCrv{fmpq}) -> EllCrv{fmpq}
+@doc raw"""
+    minimal_model(E::EllCrv{QQFieldElem}) -> EllCrv{QQFieldElem}
 
 Returns the reduced global minimal model of $E$.
 """
-function minimal_model(E::EllCrv{fmpq})
+function minimal_model(E::EllCrv{QQFieldElem})
   F = laska_kraus_connell(E)
   phi = isomorphism(E, F)
   return F, phi, inv(phi)
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     minimal_model(E::EllCrv{nf_elem}) -> EllCrv, EllCrvIso, EllCrvIso
 
 Returns the reduced global minimal model if it exists.
@@ -214,12 +214,12 @@ function minimal_model(E::EllCrv{nf_elem})
   error("The curve E has no global minimal model.")
 end
 
-@doc Markdown.doc"""
-    has_global_minimal_model(E::EllCrv{T}) -> Bool where T<:Union{fmpq, nf_elem}
+@doc raw"""
+    has_global_minimal_model(E::EllCrv{T}) -> Bool where T<:Union{QQFieldElem, nf_elem}
 
 Return true when a global minimal model for E exists.
 """
-function has_global_minimal_model(E::EllCrv{fmpq})
+function has_global_minimal_model(E::EllCrv{QQFieldElem})
   return true
 end
 
@@ -227,7 +227,7 @@ function has_global_minimal_model(E::EllCrv{nf_elem})
   return is_principal(global_minimality_class(E))[1]
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     global_minimalirt_class(E::EllCrv{nf_elem}) -> NfOrdIdl
 
 Return the element in the ideal class group that forms the obstruction for
@@ -250,7 +250,7 @@ end
 
 # The semi-minimal model is inspired by the SageMath implementation
 
-@doc Markdown.doc"""
+@doc raw"""
     semi_global_minimal_model(E::EllCrv{nf_elem}, p::NfOrdIdl) -> EllCrv, EllCrvIso, EllCrvIso, NfOrdIdl
 
 Return a semi global minimal model and the unique prime at which the model is non-minimal.
@@ -424,7 +424,7 @@ function check_kraus_conditions_at_2(c4::NfOrdElem, c6::NfOrdElem, P::NfOrdIdl)
     return check_kraus_at_2_gt4e(c4, c6, P, a1)
   end
 
-  G, phi = abelian_group(ResidueRing(OK, P2))
+  G, phi = abelian_group(residue_ring(OK, P2))
   as = [lift(phi(g)) for g in G]
   return check_kraus_at_2_remainder(c4, c6, P, as)
 
@@ -481,7 +481,7 @@ function check_kraus_conditions_at_3(c4::NfOrdElem, c6::NfOrdElem, P::NfOrdIdl)
     return true, b2
   end
 
-  G, phi = abelian_group(ResidueRing(OK, P3))
+  G, phi = abelian_group(residue_ring(OK, P3))
   for g in G
     x = lift(phi(g))
     if valuation(x*c4 + c6, P) >= e
@@ -493,19 +493,19 @@ function check_kraus_conditions_at_3(c4::NfOrdElem, c6::NfOrdElem, P::NfOrdIdl)
   return false, zero(OK)
 end
 
-@doc Markdown.doc"""
-    minimal_discriminant(E::EllCrv{fmpq}) -> fmpq
+@doc raw"""
+    minimal_discriminant(E::EllCrv{QQFieldElem}) -> QQFieldElem
 
 Return the minimal discriminant ideal D_min of E. If E has a global minimal model
 this is equal to the ideal generated by discriminant(E_min).
 """
-function minimal_discriminant(E::EllCrv{fmpq})
+function minimal_discriminant(E::EllCrv{QQFieldElem})
   P = bad_primes(E)
   v = Int[valuation(discriminant(tates_algorithm_local(E, p)[1]),p) for p in P]
-  I = prod([P[i]^(v[i]) for i in (1:length(P))]; init = one(fmpq))
+  I = prod([P[i]^(v[i]) for i in (1:length(P))]; init = one(QQFieldElem))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     minimal_discriminant(E::EllCrv{nf_elem}) -> NfOrdIdl
 
 Return the minimal discriminant ideal D_min of E. If E has a global minimal model
@@ -574,7 +574,7 @@ function rescale_curve(E::EllCrv{T}) where T <: nf_elem
     w = -Ainv * U * v
     local es
     try
-      es = round(fmpz_mat, w)
+      es = round(ZZMatrix, w)
     catch e
       if !(e isa InexactError)
         continue
@@ -593,7 +593,7 @@ end
 function make_integral(a::nf_elem, P::NfOrdIdl, e::Int)
   Pe = P^e
   OK = order(P)
-  G, phi = abelian_group(ResidueRing(OK, Pe))
+  G, phi = abelian_group(residue_ring(OK, Pe))
   for g in G
     b = lift(phi(g))
     if valuation(a - b, P) >= e
@@ -607,7 +607,7 @@ function sqrt_mod_4(x::NfOrdElem, P::NfOrdIdl)
   e = ramification_index(P)
   P2 = P^e
   OK = parent(x)
-  G, phi = abelian_group(ResidueRing(OK, P2))
+  G, phi = abelian_group(residue_ring(OK, P2))
   for g in G
     r = lift(phi(g))
     if valuation(r^2 - x, P) >= 2*e

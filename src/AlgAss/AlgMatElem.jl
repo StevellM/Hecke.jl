@@ -1,6 +1,6 @@
 parent_type(::Type{AlgMatElem{T, S, Mat}}) where {T, S, Mat} = S
 
-@doc Markdown.doc"""
+@doc raw"""
     matrix(a::AlgMatElem; copy::Bool = true) -> MatElem
 
 Returns the matrix which defines $a$.
@@ -33,7 +33,7 @@ function assure_has_coeffs(a::AlgMatElem)
   return nothing
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     coefficients(a::AlgMatElem; copy::Bool = true) -> Vector{RingElem}
 
 Returns the coefficients of $a$ in the basis of `algebra(a)`.
@@ -63,7 +63,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     -(a::AlgMatElem) -> AlgMatElem
 
 Returns $-a$.
@@ -103,7 +103,7 @@ function -(a::AlgMatElem{T, S, V}, b::AlgMatElem{T, S, V}) where {T, S, V}
   return c
 end
 
-function *(a::AlgMatElem{T, S, V}, b::AlgMatElem{T, S, V}) where {T, S, V}
+function *(a::T, b::T) where {T <: AlgMatElem}
   parent(a) != parent(b) && error("Parents don't match.")
   return parent(a)(matrix(a, copy = false)*matrix(b, copy = false))
 end
@@ -190,7 +190,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     inv(a::AlgMatElem) -> AlgMatElem
 
 Returns $a^{-1}$.
@@ -213,7 +213,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     ^(a::AlgMatElem, b::Int) -> AlgMatElem
 
 Returns $a^b$.
@@ -251,7 +251,7 @@ end
 #  return a*one(A)
 #end
 #
-#function (A::AlgMat)(x::fmpz)
+#function (A::AlgMat)(x::ZZRingElem)
 #  return x * one(A)
 #end
 #
@@ -284,7 +284,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     ==(a::AlgMatElem, b::AlgMatElem) -> Bool
 
 Returns `true` if $a$ and $b$ are equal and `false` otherwise.
@@ -318,10 +318,10 @@ function elem_from_mat_row(A::AlgMat{T, S}, M::MatElem{T}, i::Int) where { T, S 
   return A(v)
 end
 
-function elem_from_mat_row(A::AlgMat, M::fmpz_mat, i::Int, d::fmpz = fmpz(1))
-  v = Vector{fmpq}(undef, dim(A))
+function elem_from_mat_row(A::AlgMat, M::ZZMatrix, i::Int, d::ZZRingElem = ZZRingElem(1))
+  v = Vector{QQFieldElem}(undef, dim(A))
   for j in 1:ncols(M)
-    v[j] = fmpq(M[i, j], d)
+    v[j] = QQFieldElem(M[i, j], d)
   end
   return A(v)
 end

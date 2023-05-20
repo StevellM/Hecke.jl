@@ -13,7 +13,7 @@ end
 function find_candidates(x::ClassGrpCtx, u::UnitGrpCtx, add::Int = 0)
   time_kernel = 0.0
   add_units = Int[]
-  rel = SMat{fmpz}()
+  rel = sparse_matrix(ZZ)
   K = nf(x)
   r1, r2 = signature(K)
   nrel = max(10, r1+r2-1)
@@ -134,16 +134,16 @@ function _unit_group_find_units(u::UnitGrpCtx, x::ClassGrpCtx; add_orbit::Bool =
     ge = vcat(x.R_gen[1:k.c], x.R_rel[add_units])
     elements = Vector{FacElem{nf_elem, AnticNumberField}}(undef, nrows(s1))
     for i = 1:nrows(s1)
-      elements[i] = FacElem(ge, fmpz[s1[i, j] for j = 1:ncols(s1)])
+      elements[i] = FacElem(ge, ZZRingElem[s1[i, j] for j = 1:ncols(s1)])
     end
     p = 32
     if has_full_rank(u)
       elements = reduce_mod_units(elements, u)
     end
     #I order the elements by the maximum of the conjugate log.
-    m_conjs = Vector{fmpz}(undef, length(elements))
+    m_conjs = Vector{ZZRingElem}(undef, length(elements))
     for i = 1:length(m_conjs)
-      m_conjs[i] = maximum(fmpz[abs_upper_bound(fmpz, x) for x in conjugates_arb_log(elements[i], p)])
+      m_conjs[i] = maximum(ZZRingElem[abs_upper_bound(ZZRingElem, x) for x in conjugates_arb_log(elements[i], p)])
     end
     p_elements = sortperm(m_conjs)
     elements = elements[p_elements]
@@ -199,6 +199,7 @@ function _unit_group_find_units(u::UnitGrpCtx, x::ClassGrpCtx; add_orbit::Bool =
             done = trues(length(elements))
             not_larger = not_larger_bound + 1
             finished = true
+            @v_do :UnitGroup 2 popindent()
             break
           end
           if add_orbit
@@ -223,15 +224,14 @@ function _unit_group_find_units(u::UnitGrpCtx, x::ClassGrpCtx; add_orbit::Bool =
       end
 
       @v_do :UnitGroup 2 popindent()
-    end
+    end  #for loop
+
 
     if has_full_rank(u)
       add_done = false
       for i = 1:length(elements)
         if !done[i]
           time_torsion += @elapsed is_tors, p1 = is_torsion_unit(elements[i], false, u.tors_prec)
-          @v_do :UnitGroup 2 popindent()
-
           u.tors_prec = max(p1, u.tors_prec)
           p = max(p, u.tors_prec)
           if is_tors
@@ -250,6 +250,7 @@ function _unit_group_find_units(u::UnitGrpCtx, x::ClassGrpCtx; add_orbit::Bool =
       end
       u.units = reduce(u.units, u.tors_prec)
     end
+
     if finished
       break
     end

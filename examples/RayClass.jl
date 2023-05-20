@@ -1,5 +1,3 @@
-using Markdown
-
 mutable struct MapRayClassGrpNew{T} #<: Hecke.Map{T, Hecke.NfOrdIdlSet}
   header::Hecke.MapHeader
   modulus_fin::Hecke.NfOrdIdl
@@ -58,7 +56,7 @@ function _coprime_ideal(C::GrpAbFinGen, mC::Map, m::NfOrdIdl)
 end
 
 
-@doc Markdown.doc"""
+@doc raw"""
 ***
     ray_class_group(m::NfOrdIdl, A::Vector{InfPlc}=[]) -> FinGenGrpAb, Map
 
@@ -96,9 +94,9 @@ function ray_class_group_std(m::NfOrdIdl, primes::Vector{InfPlc}=InfPlc[])
   RG=rels(G)
   RC=rels(C)
 
-  A=vcat(RC, MatrixSpace(FlintZZ, ngens(G)+ngens(U), ncols(RC))())
-  B=vcat(MatrixSpace(FlintZZ, ngens(C), ncols(RG))(), RG)
-  B=vcat(B, MatrixSpace(FlintZZ, ngens(U) , ncols(RG))())
+  A=vcat(RC, matrix_space(FlintZZ, ngens(G)+ngens(U), ncols(RC))())
+  B=vcat(matrix_space(FlintZZ, ngens(C), ncols(RG))(), RG)
+  B=vcat(B, matrix_space(FlintZZ, ngens(U) , ncols(RG))())
 
 #
 # We compute the relation matrix given by the image of the map U -> (O/m)^*

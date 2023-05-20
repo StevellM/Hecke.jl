@@ -17,7 +17,7 @@
 # Compute the bases of the principal subfields
 function _principal_subfields_basis(K::SimpleNumField)
   f = K.pol
-  Kx, x = PolynomialRing(K, "x", cached = false)
+  Kx, x = polynomial_ring(K, "x", cached = false)
   n = degree(K)
   #f in Kx
   #fk = Kx([coeff(f,i) for i in 0:n])
@@ -55,8 +55,8 @@ function _principal_subfields_basis(K::SimpleNumField)
     nu, ker = kernel(M, side = :left)
 
     # This might be expensive for bigger fields?
-    if K isa NumField{fmpq}
-      ker_rref = fmpq_mat(lll(saturate(FakeFmpqMat(rref(ker)[2]).num)))
+    if K isa NumField{QQFieldElem}
+      ker_rref = QQMatrix(lll(saturate(FakeFmpqMat(rref(ker)[2]).num)))
     else
       ker_rref = rref(ker)[2]
     end
@@ -70,7 +70,7 @@ function _principal_subfields_basis(K::SimpleNumField)
   return principal_subfields_ar
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     principal_subfields(L::SimpleNumField) -> Vector{Tuple{NumField, Map}}
 
 Return the principal subfields of $L$ as pairs consisting of a subfield $k$
@@ -83,7 +83,7 @@ function principal_subfields(K::SimpleNumField)
   ba = _principal_subfields_basis(K)
   elts = Vector{Vector{elem_type(K)}}(undef, length(ba))
   for i in 1:length(ba)
-    if K isa NumField{fmpq}
+    if K isa NumField{QQFieldElem}
       baf = FakeFmpqMat(ba[i])
       elts[i] = [elem_from_mat_row(K, baf.num, j, baf.den) for j=1:nrows(baf)]
     else
@@ -166,7 +166,7 @@ end
 # Computes the intersection of subfields A = [a1,...,an] of K/k, represented as k-VS
 function _intersect_spaces(A::Vector{T}) where T
   if length(A) < 1
-    throw(error("Number of spaces must be non-zero"))
+    error("Number of spaces must be non-zero")
   elseif length(A) == 1
     return A[1]
   elseif length(A) == 2
@@ -231,7 +231,7 @@ function _generating_subfields(S, len::Int = -1)
 end
 
 function _all_subfields(K, S::Vector{T}, len::Int = -1) where {T}
-    Kx, _  = PolynomialRing(K, "x", cached = false)
+    Kx, _  = polynomial_ring(K, "x", cached = false)
     if length(S) == 0
         return S
     end
@@ -296,7 +296,7 @@ end
 #
 ################################################################################
 
-@doc Markdown.doc"""
+@doc raw"""
     subfields(L::SimpleNumField) -> Vector{Tuple{NumField, Map}}
 
 Given a simple extension $L/K$, returns all subfields of $L$ containing
@@ -330,11 +330,11 @@ function subfields(K::SimpleNumField; degree::Int = -1)
     if degree == n
       push!(res, (K, id_hom(K)))
     elseif degree == 1
-      kt, t = PolynomialRing(k, "t", cached = false)
+      kt, t = polynomial_ring(k, "t", cached = false)
       k_as_field = number_field(t-1, check = false, cached = false)[1]
       push!(res, (k_as_field, hom(k_as_field, K, one(K))))
     elseif degree == -1
-      kt, t = PolynomialRing(k, "t", cached = false)
+      kt, t = polynomial_ring(k, "t", cached = false)
       k_as_field = number_field(t-1, check = false, cached = false)[1]
       push!(res, (K, id_hom(K)))
       push!(res, (k_as_field, hom(k_as_field, K, one(K))))
@@ -346,7 +346,7 @@ function subfields(K::SimpleNumField; degree::Int = -1)
   gg = _generating_subfields(princ_subfields)
   sf_asmat_ar = _all_subfields(K, gg, degree)
   #compute embedding
-  Res = Vector{Tuple{typeof(K), morphism_type(K)}}()
+  ResidueRingElem = Vector{Tuple{typeof(K), morphism_type(K)}}()
   #get minimal polynomial of primitive elem k(pe) = M, over k
   for sf_mat in sf_asmat_ar
     #interpret column vectors as field elems
@@ -355,7 +355,7 @@ function subfields(K::SimpleNumField; degree::Int = -1)
     sf_mat_f = sf_mat
     basis_ar = Vector{elem_type(K)}(undef, nrows(sf_mat_f))
     for i in 1:nrows(sf_mat_f)
-      if K isa NumField{fmpq}
+      if K isa NumField{QQFieldElem}
         _t = FakeFmpqMat(sf_mat_f)
         basis_ar[i] = elem_from_mat_row(K, _t.num, i, _t.den)
       else
@@ -363,10 +363,10 @@ function subfields(K::SimpleNumField; degree::Int = -1)
       end
 
     end
-    push!(Res, subfield(K, basis_ar, isbasis = true))
+    push!(ResidueRingElem, subfield(K, basis_ar, isbasis = true))
   end
-  degree == -1 && set_attribute!(K, :all_subfields => Res)
-  return Res
+  degree == -1 && set_attribute!(K, :all_subfields => ResidueRingElem)
+  return ResidueRingElem
 end
 
 # TODO: Write a dedicated function for the normal case and use the subgroup functions
