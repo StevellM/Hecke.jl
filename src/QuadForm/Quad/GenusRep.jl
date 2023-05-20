@@ -133,6 +133,19 @@ function genus_representatives(L::QuadLat; max = inf, use_auto = true, use_mass 
   return res
 end
 
+function genus_rep(L::ZZLat)
+  s = denominator(scale(L))
+  L = rescale(L, s)
+  LL = _to_number_field_lattice(L)
+  K = base_field(L)
+  G = genus_rep(LL, mass(genus(L)))
+  res = ZZLat[]
+  for N in G
+    push!(res, _to_ZLat(N, K = K))
+  end
+  return [rescale(L, 1//s) for L in res]
+end
+
 function genus_rep(L::QuadLat, mass_genus)
   # Otherwise the isomorphism to the class group fails, cf. §102 in O'Meara.
 
